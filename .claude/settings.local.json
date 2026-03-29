@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p ~/.claude/commands)",
+      "Bash(mkdir -p ~/.claude/agents)",
+      "Bash(mkdir -p ~/.claude/scripts)",
+      "Bash(mkdir -p ~/.claude/logs)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\James\\.claude\\commands",
+      "C:\\Users\\James\\.claude\\agents"
+    ]
+  }
+}

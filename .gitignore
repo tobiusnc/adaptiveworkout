@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+.claude/runtime/
+.DS_Store
+*.log
+npm-debug.log*
+*.tsbuildinfo
+.idea/
+.vscode/
