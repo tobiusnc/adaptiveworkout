@@ -95,6 +95,9 @@ generator as a structured profile object.
 - Target session duration (20–30 min, 30–45 min, 45–60 min, 60+ min)
 - Fitness level (beginner / intermediate / experienced)
 - Any injuries or movements to avoid (free-form text)
+- Open-ended additional context: "Is there anything else you'd like me to know before
+  designing your first plan?" (free-form text, optional) — captures preferences such as
+  equipment biases, movement style, or training philosophy that don't fit structured fields
 
 **Future-use fields (collected now, not used in MVP):**
 - Age
@@ -287,6 +290,7 @@ part of the application calls an AI provider directly.
 | `generatePlan` | UserProfile + optional history | Program object (structured) | claude-sonnet-4-6 |
 | `modifyPlan` | Current plan + context record + conversation | Diff object + plain-language summary | claude-sonnet-4-6 |
 | `summarizeContextRecord` | Current context record + new conversation | Updated context record | claude-haiku-4-5-20251001 |
+| `analyzePlan` | Current plan + sessions + exercises | Analysis report (muscle coverage, time balance, HR profile) | claude-sonnet-4-6 — **future, not in MVP** |
 
 Each function has its own system prompt, input assembly logic, and output parser.
 Changes to one do not affect the others. Model names must be read from
@@ -524,10 +528,14 @@ GIVEN an active plan exists
 WHEN the home screen loads
 THEN all sessions in the active plan are listed with: session name, focus
      description, estimated duration, equipment needed, and round count
+THEN the last resistance session the user executed is visually indicated
+     (e.g. "Last run" label or highlight) to help the user track their place in the plan
 
 GIVEN the session list is displayed
 WHEN the user taps a session card
 THEN workout execution begins for that session
+NOTE: the user may select any session freely — execution order is not enforced.
+     The last-run indicator is advisory only.
 
 GIVEN no active plan exists
 WHEN the home screen loads

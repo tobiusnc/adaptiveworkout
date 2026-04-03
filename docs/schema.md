@@ -9,6 +9,9 @@
 ## Change Log
 ### v1.0 — 2026-03-29 — JD: initial schema (placeholder)
 ### v1.1 — 2026-04-03 — JD + Claude: full MVP schema defined
+### v1.2 — 2026-04-03 — JD: removed future logging slots from Exercise; logging will be a separate entity (ExerciseLog) referencing exerciseId
+### v1.3 — 2026-04-03 — JD: added 'mobility' and 'stretching' to SessionType; these session types have no circuit structure (sequential timed holds only)
+### v1.4 — 2026-04-03 — JD: added additionalContext to UserProfile for open-ended onboarding field
 
 ---
 
@@ -28,7 +31,7 @@ type TargetDuration = '20-30' | '30-45' | '45-60' | '60+';
 
 type FitnessLevel = 'beginner' | 'intermediate' | 'experienced';
 
-type SessionType = 'resistance'; // future: 'cardio'
+type SessionType = 'resistance' | 'mobility' | 'stretching'; // future: 'cardio'
 
 type ExercisePhase =
   | 'warmup'
@@ -49,6 +52,7 @@ interface UserProfile {
   targetDuration: TargetDuration;    // range enum; AI balances sessions within this range
   fitnessLevel: FitnessLevel;
   limitations: string;               // free-form injuries / movements to avoid
+  additionalContext: string | null;  // open-ended onboarding field: "anything else before I design your plan?"
 
   // Future-use fields — collected at onboarding, not used in MVP logic
   age: number | null;
@@ -140,10 +144,6 @@ interface Exercise {
   formCues: string[];                // displayed as bulleted list in exercise detail view
   youtubeSearchQuery: string | null; // runtime constructs YouTube search URL from this string
   isBilateral: boolean;              // if true, runtime splits into two steps: Left → Right; durationSec is per-side
-
-  // Future per-session logging slots — not populated in MVP
-  repsCompleted: number | null;
-  weightUsed: string | null;
 }
 
 // ─── SessionFeedback ──────────────────────────────────────────────────────────

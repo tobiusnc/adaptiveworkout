@@ -9,7 +9,9 @@ AI inputs and outputs must be schema-versioned.
 ## AI Layer
 Never block UI thread — all AI calls async.
 Every AI call: timeout + retry + fallback. No exceptions.
-Never hardcode API keys — environment variables only.
+Never hardcode API keys — environment variables only (EXPO_PUBLIC_ANTHROPIC_API_KEY in .env).
+API key in .env is acceptable for MVP (local device only, .gitignore enforced).
+V1 REQUIRED: Move API calls to a backend proxy so the key never ships in the app bundle.
 Log token usage on every AI call.
 Read model names from docs/architecture.md — never hardcode.
 Mock all AI calls in tests — no real API calls in test suite.

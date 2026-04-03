@@ -73,3 +73,66 @@
 - Root `PRD.md` archived as `PRD.md.archived` — superseded by `docs/PRD.md` v1.0
 
 ---
+
+## 2026-04-03 — Planning Directives, Project Bootstrap, and Tooling
+
+### Part 1: Planning Directives
+
+**Context:** The PRD defines what the app does; the planning directives define how the AI should think when generating a plan. These are distinct concerns — the PRD is product specification, the directives are AI instruction. Keeping them in a separate file (`docs/planning-directives.md`) means the directives become the direct source for the `generatePlan` system prompt with minimal transformation.
+
+**Directives established (derived from JD's iteration experience with the prototype):**
+
+1. **Default session structure:** 3–5 minute warm-up, 3-round circuit (all exercises in sequence per round, not 3 sets per exercise). Round count is the most frequently overridden parameter.
+
+2. **Upper/lower body split:** Sessions alternate focus to allow muscle recovery between sessions targeting the same areas.
+
+3. **Muscle coverage balance:** Evaluated at the plan level, not session level. Slightly higher volume for large muscle groups (quads, hamstrings, glutes, back, chest) is intentional.
+
+4. **Active recovery sessions:** Plans include mobility and stretching sessions the user inserts freely between resistance sessions. These use a sequential timed hold structure (no rounds/circuit). The home screen shows which resistance session was last run so the user can track their place in the sequence — but session selection is always free, never enforced.
+
+5. **Exercise ordering — three-filter model (priority order):**
+   - Heart rate management (primary): avoid back-to-back high-intensity exercises; allow partial recovery between peaks
+   - Equipment/setup changes (secondary): group exercises at the same equipment configuration; for resistance bands, minimize anchor height changes (low/mid/high)
+   - Consecutive muscle group avoidance (tertiary): avoid loading the same muscle group on consecutive exercises within a round
+
+6. **Plan context record initialization:** After generating a plan, the AI seeds the context record with the user's equipment, limitations, and any notable preferences — establishing the continuity mechanism for future modification sessions.
+
+**Override policy:** All directives are defaults. Any explicit user preference takes precedence. The AI does not defend defaults against user intent.
+
+**Future work noted:** An `analyzePlan` function (muscle coverage analysis, HR profile review, time balance check) was identified as valuable but deliberately deferred. The Walking Skeleton will produce a real AI-generated plan; the analysis capability is better designed against a real output than against a hypothetical one.
+
+### Part 2: Schema Refinements
+
+Two schema gaps identified and closed:
+
+- **Exercise logging removed from Exercise entity.** `repsCompleted` and `weightUsed` were initially placed on `Exercise` as future-use nullable fields. On review, logging is its own concern — it will be an `ExerciseLog` entity referencing `exerciseId`. Exercise stays clean.
+
+- **Mobility and stretching session types added.** `SessionType` expanded from `'resistance'` to `'resistance' | 'mobility' | 'stretching'`. Cardio remains a future type. Mobility and stretching sessions have no circuit structure — they are sequential timed holds.
+
+- **`additionalContext` added to UserProfile.** The final onboarding question ("Is there anything else you'd like me to know before designing your plan?") captures equipment biases, movement preferences, and training philosophy that don't fit structured fields. This is passed to `generatePlan` and seeded into the Plan Context Record.
+
+### Part 3: Expo Project Bootstrap
+
+**Approach:** The Expo project was bootstrapped into the existing repository (which already contained docs, CLAUDE.md, and the original HTML prototype files) rather than creating a new directory. This keeps the full project history — including the prototype that motivated the app — in a single repository.
+
+**Stack confirmed at install:**
+- Expo SDK 55, New Architecture enabled (`newArchEnabled: true`)
+- React 19.2.0 / React Native 0.83.4
+- expo-router 55.0.10, expo-speech 55.0.11, expo-audio 55.0.11, expo-sqlite 55.0.13
+- zustand 5.0.12
+- TypeScript strict mode — compiler passes clean
+
+**Notable bootstrap challenge:** `create-expo-app` refuses to run in-place when the target directory contains existing files. Resolution: bootstrapped in a temp directory and merged the generated files into the project, preserving all existing content.
+
+**Security decision:** API key stored in `.env` (gitignored) for MVP — acceptable for a single-user local device. The `EXPO_PUBLIC_` prefix exposes the key to the app bundle, which is a known limitation of client-side React Native apps. A backend proxy is the correct V1 solution and is documented as a hard requirement in `docs/constraints.md`.
+
+**Folder structure created:** `src/ai/`, `src/storage/`, `src/prompts/`, `src/store/`, `src/types/` — matching the four-subsystem architecture defined in the PRD.
+
+### Part 4: Tooling
+
+- **Context7 MCP** added globally (`~/.claude/settings.json`) — provides up-to-date library documentation to all Claude Code sessions across all projects.
+- **Permissions broadened** — `Write` and `Edit` permissions expanded to `*` globally. Subagents running bootstrap operations need access to temp directories, npm cache, and AppData — path-scoped restrictions were causing permission prompts without providing meaningful security (since `Bash(*)` was already unrestricted).
+
+**Outcome:** All planning documentation complete. Expo project bootstrapped and compiling clean. Ready to `/preplan` the Walking Skeleton in a fresh session.
+
+---
