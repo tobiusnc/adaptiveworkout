@@ -1,0 +1,2676 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Training Program v3 — Upper/Lower Split</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0f0f0e;
+    --surface: #1a1a18;
+    --surface2: #222220;
+    --surface3: #282826;
+    --border: #2e2e2b;
+    --border2: #3a3a36;
+    --text: #e8e6e0;
+    --muted: #7a7870;
+    --faint: #444440;
+    --upper-color: #c8f060;
+    --lower-color: #60c8f0;
+    --mobility-color: #f0a060;
+    --flex-color: #d060f0;
+    --hr-low: #888880;
+    --hr-mid: #f0c060;
+    --hr-high: #f06060;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+  }
+
+  .page { max-width: 900px; margin: 0 auto; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 9vw, 88px);
+    letter-spacing: 0.04em;
+    line-height: 0.88;
+    color: var(--text);
+  }
+  h1 .hl { color: var(--upper-color); }
+  .subtitle {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.7;
+    max-width: 560px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+  }
+  .meta-pill {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 5px 11px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .meta-pill strong { color: var(--text); font-weight: 500; }
+
+  /* ── SECTION HEADINGS ── */
+  .section-heading {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  /* ── ROTATION OVERVIEW ── */
+  .rotation-section { margin-bottom: 48px; }
+  .rotation-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) { .rotation-grid { grid-template-columns: 1fr 1fr; } }
+  .rotation-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 14px;
+  }
+  .rotation-chip.upper { border-top: 3px solid var(--upper-color); }
+  .rotation-chip.lower { border-top: 3px solid var(--lower-color); }
+  .rotation-chip.mobility { border-top: 3px solid var(--mobility-color); }
+  .chip-session {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .chip-type {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+  .upper .chip-type { color: var(--upper-color); }
+  .lower .chip-type { color: var(--lower-color); }
+  .mobility .chip-type { color: var(--mobility-color); }
+  .chip-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .chip-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--faint);
+    margin-top: 6px;
+    letter-spacing: 0.08em;
+  }
+
+  .rotation-note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--upper-color);
+    border-radius: 4px;
+    padding: 14px 18px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .rotation-note strong { color: var(--text); font-weight: 500; }
+
+  /* ── DAY CARDS ── */
+  .days-section { margin-bottom: 56px; }
+  .day-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .day-card.upper-day { border-left: 3px solid var(--upper-color); }
+  .day-card.lower-day { border-left: 3px solid var(--lower-color); }
+  .day-card.mobility-day { border-left: 3px solid var(--mobility-color); }
+
+  .day-card-header {
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .day-card-header:hover { background: var(--surface2); }
+
+  .day-tag {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .upper-day .day-tag { color: var(--upper-color); }
+  .lower-day .day-tag { color: var(--lower-color); }
+  .mobility-day .day-tag { color: var(--mobility-color); }
+
+  .day-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .day-focus {
+    font-size: 13px;
+    color: var(--text);
+    margin-top: 5px;
+    font-weight: 400;
+  }
+  .toggle-icon {
+    font-size: 20px;
+    color: var(--muted);
+    margin-top: 4px;
+    transition: transform 0.25s;
+    flex-shrink: 0;
+  }
+  .day-card.open .toggle-icon { transform: rotate(180deg); }
+  .day-card-body { display: none; }
+  .day-card.open .day-card-body { display: block; }
+
+  /* ── ANCHOR FLOW STRIP ── */
+  .anchor-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 10px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+  }
+  .anchor-label {
+    text-transform: uppercase;
+    color: var(--faint);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    margin-right: 4px;
+  }
+  .anchor-node {
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border2);
+    color: var(--muted);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .anchor-node.trx { border-color: rgba(200,240,96,0.3); color: var(--upper-color); }
+  .anchor-node.high { border-color: rgba(96,200,240,0.4); color: var(--lower-color); }
+  .anchor-node.mid { border-color: rgba(240,192,96,0.4); color: var(--hr-mid); }
+  .anchor-node.low { border-color: rgba(208,96,240,0.3); color: var(--flex-color); }
+  .anchor-node.loops { border-color: rgba(240,160,96,0.3); color: var(--mobility-color); }
+  .anchor-node.curlbar { border-color: rgba(200,240,96,0.2); color: #a0b880; }
+  .anchor-node.kb { border-color: rgba(240,96,96,0.3); color: var(--hr-high); }
+  .anchor-node.bw { border-color: var(--border2); color: var(--faint); }
+  .anchor-arrow {
+    color: var(--faint);
+    font-size: 10px;
+  }
+
+  /* ── HR CURVE STRIP ── */
+  .hr-curve {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 20px;
+    background: var(--surface3);
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .hr-label {
+    color: var(--faint);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    margin-right: 4px;
+  }
+  .hr-node {
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 9px;
+  }
+  .hr-node.low { background: rgba(136,136,128,0.15); color: var(--hr-low); border: 1px solid rgba(136,136,128,0.2); }
+  .hr-node.mid { background: rgba(240,192,96,0.1); color: var(--hr-mid); border: 1px solid rgba(240,192,96,0.2); }
+  .hr-node.high { background: rgba(240,96,96,0.1); color: var(--hr-high); border: 1px solid rgba(240,96,96,0.2); }
+
+  /* Blocks inside day */
+  .block {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .block:last-child { border-bottom: none; }
+  .block-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .upper-day .block-label { color: var(--upper-color); opacity: 0.7; }
+  .lower-day .block-label { color: var(--lower-color); opacity: 0.7; }
+  .mobility-day .block-label { color: var(--mobility-color); opacity: 0.7; }
+
+  /* Exercise entries */
+  .exercise {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .exercise:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+
+  .ex-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .ex-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--faint);
+    min-width: 20px;
+  }
+  .ex-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .ex-equip {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    padding: 2px 6px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .ex-hr {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .ex-hr.low { background: rgba(136,136,128,0.12); color: var(--hr-low); border: 1px solid rgba(136,136,128,0.2); }
+  .ex-hr.mid { background: rgba(240,192,96,0.08); color: var(--hr-mid); border: 1px solid rgba(240,192,96,0.18); }
+  .ex-hr.high { background: rgba(240,96,96,0.08); color: var(--hr-high); border: 1px solid rgba(240,96,96,0.18); }
+
+  .ex-timing {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    padding-left: 30px;
+  }
+  .ex-desc {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    padding-left: 30px;
+    margin-bottom: 8px;
+  }
+  .form-cues { padding-left: 30px; }
+  .form-cues-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 5px;
+  }
+  .cue-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cue-list li {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    display: flex;
+    gap: 8px;
+  }
+  .cue-list li::before {
+    content: '→';
+    color: var(--faint);
+    flex-shrink: 0;
+    font-size: 11px;
+    margin-top: 1px;
+  }
+
+  /* Flexibility entries */
+  .flex-exercise {
+    background: rgba(208,96,240,0.04);
+    border: 1px solid rgba(208,96,240,0.15);
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+  }
+  .flex-exercise:last-child { margin-bottom: 0; }
+  .flex-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--flex-color);
+    margin-bottom: 4px;
+  }
+  .flex-timing {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .flex-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Warm-up list */
+  .warmup-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .warmup-list li {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .warmup-list li::before {
+    content: '·';
+    color: var(--faint);
+  }
+
+  /* ── NOTES SECTION ── */
+  .notes-section { margin-bottom: 40px; }
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 500px) { .notes-grid { grid-template-columns: 1fr; } }
+  .note-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 18px;
+  }
+  .note-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--lower-color);
+    margin-bottom: 8px;
+  }
+  .note-text {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .note-text strong { color: var(--text); font-weight: 500; }
+
+  .highlight-note {
+    margin-top: 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--upper-color);
+    border-radius: 4px;
+    padding: 18px 22px;
+  }
+  .highlight-note .note-title { color: var(--upper-color); }
+  .highlight-note .note-text { font-size: 13px; line-height: 1.8; }
+
+  .expand-hint {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .expand-hint:hover { color: var(--text); }
+
+  /* ── YOUTUBE ICON LINK ── */
+  .yt-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(240,96,96,0.65);
+    text-decoration: none;
+    padding: 2px 6px;
+    border: 1px solid rgba(240,96,96,0.2);
+    border-radius: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .yt-link:hover { color: #f06060; border-color: rgba(240,96,96,0.5); }
+</style>
+</head>
+<body>
+<div class="page">
+<!-- HEADER -->
+<header>
+<div class="eyebrow">Home Training Program · Upper/Lower Split · v3</div>
+<h1>Training<br/><span class="hl">Program</span></h1>
+<p class="subtitle">Four sessions cycling through two upper and two lower body days. Upper/lower structure allows 48+ hours of tissue-specific recovery between sessions of the same type. Three sessions per week rotating sequentially through all four. Band anchor points sequenced for minimal friction within each session. HR curve managed deliberately across each circuit.</p>
+<div class="meta-row">
+<div class="meta-pill"><strong>4</strong> session rotation</div>
+<div class="meta-pill"><strong>3</strong> sessions/week</div>
+<div class="meta-pill"><strong>~40 min</strong> per session</div>
+<div class="meta-pill">TRX · Bands · Curl Bar · KB</div>
+<div class="meta-pill">Upper / Lower split</div>
+</div>
+</header>
+<!-- ROTATION OVERVIEW -->
+<div class="rotation-section">
+<div class="section-heading">Session Rotation</div>
+<div class="rotation-grid" style="">
+<div class="rotation-chip upper">
+<div class="chip-session">Session 1</div>
+<div class="chip-type">Upper 1</div>
+<div class="chip-sub">Horizontal push/pull · Arms · Core anti-rotation</div>
+<div class="chip-time">~40 min</div>
+</div>
+<div class="rotation-chip lower">
+<div class="chip-session">Session 2</div>
+<div class="chip-type">Lower 1</div>
+<div class="chip-sub">Posterior chain · Explosive · Lunge · Hamstring</div>
+<div class="chip-time">~40 min</div>
+</div>
+<div class="rotation-chip upper">
+<div class="chip-session">Session 3</div>
+<div class="chip-type">Upper 2</div>
+<div class="chip-sub">Vertical pull · Shoulder detail · Core stability</div>
+<div class="chip-time">~40 min</div>
+</div>
+<div class="rotation-chip lower">
+<div class="chip-session">Session 4</div>
+<div class="chip-type">Lower 2</div>
+<div class="chip-sub">Hip stability · Adductors · Hip flexors · Calves</div>
+<div class="chip-time">~40 min</div>
+</div>
+<div class="rotation-chip mobility">
+<div class="chip-session">Session 5</div>
+<div class="chip-type">Mobility</div>
+<div class="chip-sub">Hip progression · Spinal mobility · Shoulder health · Static stretching</div>
+<div class="chip-time">~25–30 min</div>
+</div></div>
+<div class="rotation-note">
+<strong>How the rotation works:</strong> Cycle through sessions 1→2→3→4→1→2→3… regardless of the day of the week. The critical rule: never run two upper or two lower sessions on consecutive days. Upper/Lower or Lower/Upper back-to-back is fine. On a 3-session week the sequence shifts by one each week — over four weeks every session receives equal exposure. The <strong>4th day</strong> each week is a dedicated mobility/active recovery session and does not consume a resistance slot.
+    </div>
+</div>
+<!-- DAY CARDS -->
+<div class="days-section">
+<div class="section-heading">Training Sessions</div>
+<div class="expand-hint" onclick="toggleAll()">▼ Expand / Collapse All</div>
+<!-- ══════════════════════════════════════ -->
+<!-- UPPER 1 -->
+<!-- ══════════════════════════════════════ -->
+<div class="day-card upper-day open" id="upper1">
+<!-- TIMER-DATA:upper1 — machine-readable session data for timer app -->
+<script id="timer-data-upper1" type="application/json">
+{
+  "session_id": "upper1",
+  "session_name": "Upper Body \u2014 Session 1",
+  "session_type": "upper",
+  "rounds": 3,
+  "rest_between_exercises_sec": 20,
+  "rest_between_rounds_sec": 75,
+  "warmup": [
+    {
+      "name": "Arm Circles",
+      "timing": "15 sec forward, 15 sec backward",
+      "form_cues": [
+        "Stand with feet hip-width apart, arms extended straight out to your sides",
+        "Draw circles with your fingertips \u2014 start small and gradually widen to full range",
+        "15 seconds forward, then immediately reverse for 15 seconds backward",
+        "Keep your neck relaxed and shoulders away from your ears throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to"
+    },
+    {
+      "name": "Shoulder Rolls",
+      "timing": "10 forward, 10 backward",
+      "form_cues": [
+        "Stand tall, arms relaxed at your sides",
+        "Roll both shoulders in a large circle \u2014 up, forward, down, back",
+        "10 full rotations forward, then reverse for 10 backward",
+        "Make the circles as large as possible \u2014 exaggerate the movement"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to"
+    },
+    {
+      "name": "Torso Rotations",
+      "timing": "10 slow each side",
+      "form_cues": [
+        "Stand with feet shoulder-width apart, arms crossed over chest or extended forward",
+        "Rotate your upper body slowly to one side as far as comfortable \u2014 hips stay forward",
+        "Pause briefly at end range, then rotate to the other side",
+        "Keep your core lightly braced and avoid letting your hips rotate with your torso"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=standing+torso+rotations+warmup+mobility"
+    },
+    {
+      "name": "Wrist Circles",
+      "timing": "10 each direction",
+      "form_cues": [
+        "Extend both arms in front of you, hands loose",
+        "Make slow deliberate circles with both wrists \u2014 10 clockwise, 10 counterclockwise",
+        "Follow with 10 gentle wrist flexions and extensions to complete the range"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to"
+    },
+    {
+      "name": "Band Pull-Apart",
+      "timing": "15 reps",
+      "form_cues": [
+        "Hold a light band at shoulder height, arms extended, hands shoulder-width apart",
+        "Pull the band apart by driving both arms out to your sides until band touches your chest",
+        "Squeeze your shoulder blades together at end range \u2014 hold 1 second",
+        "Return slowly \u2014 resist the band pulling your hands back together",
+        "Keep elbows straight and shoulders away from your ears throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial"
+    }
+  ],
+  "exercises": [
+    {
+      "order": 1,
+      "name": "TRX Push-Up",
+      "equipment": "TRX",
+      "reps": "10 reps",
+      "form_cues": [
+        "Grip handles with palms facing down, walk feet back until body is at a diagonal \u2014 more upright = easier, more horizontal = harder",
+        "Keep your body in a rigid plank from head to heels \u2014 do not let hips sag or pike up",
+        "Lower your chest toward the handles, elbows tracking at roughly 45\u00b0 from your body \u2014 not flared wide",
+        "Press back to start, fully extending arms without locking elbows",
+        "Exhale on the push, inhale on the lower"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+TRX+push-up+form+tutorial"
+    },
+    {
+      "order": 2,
+      "name": "Band Row",
+      "equipment": "Band (mid anchor)",
+      "reps": "10 reps",
+      "form_cues": [
+        "Anchor band at mid-chest height. Stand facing the anchor, grip one end in each hand, step back until there is tension with arms extended.",
+        "Hinge slightly at the hips \u2014 about 15\u201320\u00b0 forward lean \u2014 and maintain that position throughout the set",
+        "Pull both hands toward your lower ribs, driving elbows back and squeezing shoulder blades together at the top",
+        "Do not shrug \u2014 keep shoulders packed down away from your ears throughout",
+        "Control the return \u2014 resist the band pulling your arms forward; 2\u20133 counts on the way out"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+row+form+tutorial"
+    },
+    {
+      "order": 3,
+      "name": "Band Pallof Press",
+      "equipment": "Band (mid anchor \u2014 no change)",
+      "reps": "10 reps each side",
+      "form_cues": [
+        "Stand side-on to the anchor, feet shoulder-width apart, hold the band with both hands at your sternum",
+        "Stand far enough from the anchor that there is meaningful tension in the band at your chest",
+        "Brace your core hard, then press both hands straight out in front of you until arms are extended",
+        "Hold for 2 seconds \u2014 resist the band trying to pull you toward the anchor",
+        "Return hands to your chest. That's one rep.",
+        "Your hips and shoulders should stay square throughout \u2014 no rotating toward or away from the anchor",
+        "Complete all reps on one side, then switch sides for the next round"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+pallof+press+resistance+band+anti-rotation"
+    },
+    {
+      "order": 4,
+      "name": "Curl Bar Bicep Curl",
+      "equipment": "Curl Bar",
+      "reps": "10 reps",
+      "form_cues": [
+        "Grip the curl bar at the angled sections, hands roughly shoulder-width apart, palms facing up",
+        "Keep your elbows pinned to your sides throughout \u2014 they are the pivot point, not a lever to swing",
+        "Curl the bar up in a smooth arc toward your chest",
+        "Do not rock your body or use momentum \u2014 if you have to swing, rest and continue",
+        "Lower slowly \u2014 3 counts down \u2014 this eccentric phase builds strength faster than rushing back to start"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+EZ+bar+bicep+curl+form+tutorial"
+    },
+    {
+      "order": 5,
+      "name": "Band Tricep Pushdown",
+      "equipment": "Band (high anchor)",
+      "reps": "12 reps",
+      "form_cues": [
+        "Anchor band at high point. Stand facing the anchor, grip the band with both hands at chest height, palms facing down.",
+        "Keep your elbows pinned to your sides \u2014 they are the pivot point throughout the movement",
+        "Push the band down by extending your elbows until arms are fully straight",
+        "Squeeze your triceps hard at the bottom for 1 second",
+        "Let the band pull your hands back up slowly \u2014 do not just release \u2014 2 counts on the way up",
+        "Slight forward lean is fine; rounding your back is not"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+tricep+pushdown+form"
+    },
+    {
+      "order": 6,
+      "name": "Dead Bug",
+      "equipment": "Bodyweight",
+      "reps": "8 reps each side (16 total)",
+      "form_cues": [
+        "Lie on your back, arms pointing straight up toward the ceiling, hips and knees at 90\u00b0 (tabletop position)",
+        "Press your lower back firmly into the floor \u2014 eliminate the arch. Maintain this contact throughout every rep.",
+        "Brace your core, then slowly lower your right arm overhead and left leg toward the floor simultaneously",
+        "Lower only as far as you can without your lower back lifting off the floor",
+        "Return to start, then repeat on the opposite side \u2014 that's one rep each side",
+        "Exhale slowly throughout the lowering phase \u2014 this drives core engagement and keeps the lower back pinned"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+dead+bug+core+exercise+form"
+    }
+  ],
+  "between_rounds_stretch": {
+    "name": "Doorway Chest Stretch",
+    "duration_sec": 30
+  },
+  "cooldown": [
+    {
+      "name": "Standing Forward Fold",
+      "duration_sec": 45
+    },
+    {
+      "name": "TRX Chest Opener",
+      "duration_sec": 30
+    }
+  ]
+}
+</script>
+<div class="day-card-header" onclick="toggle('upper1')">
+<div class="day-header-left">
+<div class="day-tag">Upper Body — Session 1</div>
+<div class="day-meta">Horizontal push + pull · Arms · Anti-rotation core · ~40 min</div>
+<div class="day-focus">TRX push-up · Band row · Bicep curl · Pallof press · Tricep pushdown · Dead bug</div>
+</div>
+<div class="toggle-icon">▾</div>
+</div>
+<div class="day-card-body">
+<div class="anchor-flow">
+<span class="anchor-label">Anchor</span>
+<span class="anchor-node trx">TRX</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node mid">Mid</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node mid">Mid</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node curlbar">Curl Bar</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node high">High</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node bw">Bodyweight</span>
+</div>
+<div class="hr-curve">
+<span class="hr-label">HR Curve</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Active Recovery</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Floor</span>
+</div>
+<div class="block">
+<div class="block-label">Warm-Up — 3–4 min</div>
+
+
+          <div class="exercise warmup-exercise" data-exercise="Arm Circles" data-youtube-url="https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to">
+            <div class="ex-header"><span class="ex-name">Arm Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to" rel="noopener" target="_blank" title="YouTube: Arm Circles tutorial">►</a></div>
+            <div class="ex-timing">15 sec forward, 15 sec backward</div>
+            <div class="ex-desc">Lubricates the shoulder joint through its full range of motion and increases blood flow to the rotator cuff before any pushing or pulling. Start small and progressively widen the circle.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet hip-width apart, arms extended straight out to your sides</li><li>Draw circles with your fingertips — start small and gradually widen to full range</li><li>15 seconds forward, then immediately reverse for 15 seconds backward</li><li>Keep your neck relaxed and shoulders away from your ears throughout</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Shoulder Rolls" data-youtube-url="https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Shoulder Rolls</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Shoulder Rolls tutorial">►</a></div>
+            <div class="ex-timing">10 forward, 10 backward</div>
+            <div class="ex-desc">Mobilizes the scapulae and upper trapezius, releasing tension from desk work and preparing the shoulder girdle for the rowing and pressing movements ahead.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand tall, arms relaxed at your sides</li><li>Roll both shoulders in a large circle — up, forward, down, back</li><li>10 full rotations forward, then reverse for 10 backward</li><li>Make the circles as large as possible — exaggerate the movement</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Torso Rotations" data-youtube-url="https://www.youtube.com/results?search_query=standing+torso+rotations+warmup+mobility">
+            <div class="ex-header"><span class="ex-name">Torso Rotations</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=standing+torso+rotations+warmup+mobility" rel="noopener" target="_blank" title="YouTube: Torso Rotations tutorial">►</a></div>
+            <div class="ex-timing">10 slow each side</div>
+            <div class="ex-desc">Opens the thoracic spine for rotation — critical before rowing and pressing movements. Slow tempo is deliberate: fast rotations are momentum, not mobility.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet shoulder-width apart, arms crossed over chest or extended forward</li><li>Rotate your upper body slowly to one side as far as comfortable — hips stay forward</li><li>Pause briefly at end range, then rotate to the other side</li><li>Keep your core lightly braced and avoid letting your hips rotate with your torso</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Wrist Circles" data-youtube-url="https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Wrist Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Wrist Circles tutorial">►</a></div>
+            <div class="ex-timing">10 each direction</div>
+            <div class="ex-desc">Prepares the wrist joints for the grip demands of the TRX handles and curl bar. Often skipped and often the source of unnecessary wrist discomfort during pushing exercises.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Extend both arms in front of you, hands loose</li><li>Make slow deliberate circles with both wrists — 10 clockwise, 10 counterclockwise</li><li>Follow with 10 gentle wrist flexions and extensions to complete the range</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Band Pull-Apart" data-youtube-url="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial">
+            <div class="ex-header"><span class="ex-name">Band Pull-Apart</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial" rel="noopener" target="_blank" title="YouTube: Band Pull-Apart tutorial">►</a></div>
+            <div class="ex-timing">15 reps</div>
+            <div class="ex-desc">The single most important warmup movement for an upper body session. Activates the rear delts, rhomboids, and external rotators that stabilize the shoulder during every push and pull. If this burns quickly, you have the imbalance this program is designed to correct.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Hold a light band at shoulder height, arms extended, hands shoulder-width apart</li><li>Pull the band apart by driving both arms out to your sides until band touches your chest</li><li>Squeeze your shoulder blades together at end range — hold 1 second</li><li>Return slowly — resist the band pulling your hands back together</li><li>Keep elbows straight and shoulders away from your ears throughout</li></ul></div>
+          </div>
+        </div>
+<div class="block">
+<div class="block-label">Circuit × 3 Rounds — Rest 20s between exercises · Rest 60–90s between rounds</div>
+<!-- Ex 1 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">01</span>
+<span class="ex-name">TRX Push-Up</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">TRX</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+TRX+push-up+form+tutorial" rel="noopener" target="_blank" title="YouTube: TRX Push-Up form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Adjust foot position for difficulty</div>
+<div class="ex-desc">Opens the session with the compound horizontal push. The instability of the TRX handles recruits your core throughout, making it more effective than a standard push-up. Moderate HR from the start — chest, front shoulders, triceps, and stabilizers all engaged simultaneously.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Grip handles with palms facing down, walk feet back until body is at a diagonal — more upright = easier, more horizontal = harder</li>
+<li>Keep your body in a rigid plank from head to heels — do not let hips sag or pike up</li>
+<li>Lower your chest toward the handles, elbows tracking at roughly 45° from your body — not flared wide</li>
+<li>Press back to start, fully extending arms without locking elbows</li>
+<li>Exhale on the push, inhale on the lower</li>
+</ul>
+</div>
+</div>
+<!-- Ex 2 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">02</span>
+<span class="ex-name">Band Row</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">Band (mid anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+row+form+tutorial" rel="noopener" target="_blank" title="YouTube: Band Row form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Primary movers: mid-back, lats, rear delts</div>
+<div class="ex-desc">The horizontal pull paired with the push-up — no anchor change from the previous exercise. Together these two movements cover the full horizontal plane and balance the shoulder joint. Bands deliver peak resistance at peak contraction where your mid-back is strongest. HR stays elevated from the push-up.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor band at mid-chest height. Stand facing the anchor, grip one end in each hand, step back until there is tension with arms extended.</li>
+<li>Hinge slightly at the hips — about 15–20° forward lean — and maintain that position throughout the set</li>
+<li>Pull both hands toward your lower ribs, driving elbows back and squeezing shoulder blades together at the top</li>
+<li>Do not shrug — keep shoulders packed down away from your ears throughout</li>
+<li>Control the return — resist the band pulling your arms forward; 2–3 counts on the way out</li>
+</ul>
+</div>
+</div>
+<!-- Ex 3 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">03</span>
+<span class="ex-name">Band Pallof Press</span>
+<span class="ex-hr low">Active Recovery</span>
+<span class="ex-equip">Band (mid anchor — no change)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+pallof+press+resistance+band+anti-rotation" rel="noopener" target="_blank" title="YouTube: Band Pallof Press form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps each side · Switch sides each round · Anti-rotation core work</div>
+<div class="ex-desc">Mid anchor stays set up from the row — no transition needed. Positioned here deliberately as an active recovery point between the two compound movements and the isolation work ahead. HR drops while core anti-rotation is trained — the obliques and deep stabilizers work without taxing the muscles just loaded. This is how your core actually functions in real life: resisting rotation, not generating it.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand side-on to the anchor, feet shoulder-width apart, hold the band with both hands at your sternum</li>
+<li>Stand far enough from the anchor that there is meaningful tension in the band at your chest</li>
+<li>Brace your core hard, then press both hands straight out in front of you until arms are extended</li>
+<li>Hold for 2 seconds — resist the band trying to pull you toward the anchor</li>
+<li>Return hands to your chest. That's one rep.</li>
+<li>Your hips and shoulders should stay square throughout — no rotating toward or away from the anchor</li>
+<li>Complete all reps on one side, then switch sides for the next round</li>
+</ul>
+</div>
+</div>
+<!-- Ex 4 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">04</span>
+<span class="ex-name">Curl Bar Bicep Curl</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Curl Bar</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+EZ+bar+bicep+curl+form+tutorial" rel="noopener" target="_blank" title="YouTube: Curl Bar Bicep Curl form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Two-handed · EZ bar grip reduces wrist strain</div>
+<div class="ex-desc">Isolation work begins here — HR settles into its lower range for the back half of the circuit. The curl bar's angled grip reduces forearm strain while hitting both biceps simultaneously. Eccentric loading on the way down is where the strength adaptation happens most efficiently.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Grip the curl bar at the angled sections, hands roughly shoulder-width apart, palms facing up</li>
+<li>Keep your elbows pinned to your sides throughout — they are the pivot point, not a lever to swing</li>
+<li>Curl the bar up in a smooth arc toward your chest</li>
+<li>Do not rock your body or use momentum — if you have to swing, rest and continue</li>
+<li>Lower slowly — 3 counts down — this eccentric phase builds strength faster than rushing back to start</li>
+</ul>
+</div>
+</div>
+<!-- Ex 5 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">05</span>
+<span class="ex-name">Band Tricep Pushdown</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Band (high anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+tricep+pushdown+form" rel="noopener" target="_blank" title="YouTube: Band Tricep Pushdown form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 reps · Primary movers: triceps</div>
+<div class="ex-desc">The tricep complements the bicep curl and closes out the arm work for this session. Anchor moves to high for the first time this circuit — one anchor change after three consecutive mid/curl bar exercises. Bands are effective here because resistance increases through the pushdown at exactly the point where the tricep has the most mechanical advantage.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor band at high point. Stand facing the anchor, grip the band with both hands at chest height, palms facing down.</li>
+<li>Keep your elbows pinned to your sides — they are the pivot point throughout the movement</li>
+<li>Push the band down by extending your elbows until arms are fully straight</li>
+<li>Squeeze your triceps hard at the bottom for 1 second</li>
+<li>Let the band pull your hands back up slowly — do not just release — 2 counts on the way up</li>
+<li>Slight forward lean is fine; rounding your back is not</li>
+</ul>
+</div>
+</div>
+<!-- Ex 6 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">06</span>
+<span class="ex-name">Dead Bug</span>
+<span class="ex-hr low">HR Floor</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+dead+bug+core+exercise+form" rel="noopener" target="_blank" title="YouTube: Dead Bug form tutorial">▶</a>
+</div>
+<div class="ex-timing">8 reps each side (16 total) · Slow and controlled</div>
+<div class="ex-desc">Circuit closer — HR at its floor, breathing should be controlled. The dead bug trains your deep core to resist spine extension while limbs move, reinforcing the same spinal bracing pattern used in the row and push-up. Ending the circuit on the floor with controlled breathing is an intentional gear-down before the inter-round rest.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Lie on your back, arms pointing straight up toward the ceiling, hips and knees at 90° (tabletop position)</li>
+<li>Press your lower back firmly into the floor — eliminate the arch. Maintain this contact throughout every rep.</li>
+<li>Brace your core, then slowly lower your right arm overhead and left leg toward the floor simultaneously</li>
+<li>Lower only as far as you can without your lower back lifting off the floor</li>
+<li>Return to start, then repeat on the opposite side — that's one rep each side</li>
+<li>Exhale slowly throughout the lowering phase — this drives core engagement and keeps the lower back pinned</li>
+</ul>
+</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">↔ Flexibility: Doorway Chest Stretch</div>
+<div class="flex-timing">30 sec each side · Between rounds</div>
+<div class="flex-desc">Stand in a doorway, place your forearm on the frame at 90°, and gently rotate your body away until you feel a stretch across your chest and front shoulder. Hold without bouncing. Critical for reversing forward shoulder posture that develops from pushing exercises and desk work. Switch sides each round.</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label">Cool-Down — 2 min</div>
+<div class="flex-exercise">
+<div class="flex-name">Standing Forward Fold</div>
+<div class="flex-timing">30–45 sec</div>
+<div class="flex-desc">Stand with feet hip-width, hinge at hips and let your torso hang toward the floor. Bend knees slightly. Releases hamstrings and decompresses the lumbar spine.</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">TRX Chest Opener</div>
+<div class="flex-timing">30 sec</div>
+<div class="flex-desc">Face away from anchor, hold handles at hip height and walk forward slightly until you feel a gentle pull across chest. Arms slightly back, chin up. Counteracts the push-up chest fatigue and forward shoulder tension.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ══════════════════════════════════════ -->
+<!-- LOWER 1 -->
+<!-- ══════════════════════════════════════ -->
+<div class="day-card lower-day open" id="lower1">
+<!-- TIMER-DATA:lower1 — machine-readable session data for timer app -->
+<script id="timer-data-lower1" type="application/json">
+{
+  "session_id": "lower1",
+  "session_name": "Lower Body \u2014 Session 2",
+  "session_type": "lower",
+  "rounds": 3,
+  "rest_between_exercises_sec": 20,
+  "rest_between_rounds_sec": 75,
+  "warmup": [
+    {
+      "name": "Hip Circles",
+      "timing": "10 each direction",
+      "form_cues": [
+        "Stand on one foot, hands on hips or holding a wall for balance",
+        "Draw large slow circles with your lifted knee \u2014 forward, out, back, in",
+        "10 rotations each direction, each leg, making the circle as large as comfortable",
+        "Keep your standing leg slightly bent and torso upright throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to"
+    },
+    {
+      "name": "Forward Leg Swings",
+      "timing": "10 each leg",
+      "form_cues": [
+        "Stand sideways to a wall, one hand on the wall for balance",
+        "Swing the outside leg forward and back in a controlled pendulum \u2014 let momentum build gradually",
+        "The forward swing stretches the hamstring; the back swing opens the hip flexor",
+        "Don't force the range \u2014 let swing amplitude increase naturally over 10 reps",
+        "Complete all reps on one leg before switching sides"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=forward+leg+swings+warmup+dynamic+stretch"
+    },
+    {
+      "name": "Lateral Leg Swings",
+      "timing": "10 each leg",
+      "form_cues": [
+        "Face a wall, both hands on the wall for balance",
+        "Swing one leg across your body and back out to the side in a controlled arc",
+        "Let the swing amplitude gradually increase \u2014 don't force range on the first rep",
+        "Keep your hips level and avoid leaning your torso to compensate"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch"
+    },
+    {
+      "name": "Bodyweight RDL",
+      "timing": "8 slow reps",
+      "form_cues": [
+        "Stand with feet hip-width apart, arms hanging in front of your thighs",
+        "Push your hips back \u2014 not down. Imagine closing a car door with your backside.",
+        "Let your hands travel down the front of your legs as your hips move back",
+        "Maintain a neutral spine \u2014 feel the hamstring stretch, not the lower back",
+        "Drive hips forward to stand, squeeze glutes at the top",
+        "Pause 1 second at top and bottom \u2014 this is about pattern, not speed"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=bodyweight+romanian+deadlift+hinge+pattern+form"
+    },
+    {
+      "name": "Standing Calf Raises",
+      "timing": "15 reps bodyweight, full range",
+      "form_cues": [
+        "Stand with feet hip-width, hands lightly touching a wall for balance only",
+        "Rise all the way up onto the balls of your feet",
+        "Lower all the way down \u2014 heels at or below floor level if on a step",
+        "Slow tempo \u2014 2 counts up, 2 counts down. This is mobility prep, not a working set."
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial"
+    }
+  ],
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Curl Bar Romanian Deadlift",
+      "equipment": "Curl Bar",
+      "reps": "10 reps",
+      "form_cues": [
+        "Stand with feet hip-width apart, grip the curl bar with both hands at center, bar hanging in front of your thighs, palms facing your body",
+        "Push your hips back \u2014 not down. This is a hinge, not a squat. Imagine closing a car door with your backside.",
+        "Keep the bar close to your legs as it travels down \u2014 it should nearly graze your shins",
+        "Maintain a neutral spine throughout \u2014 do not round the lower back",
+        "Lower until you feel a stretch in your hamstrings \u2014 typically just below the knee",
+        "Drive hips forward to return to standing, squeezing glutes at the top"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+romanian+deadlift+RDL+form+tutorial"
+    },
+    {
+      "order": 2,
+      "name": "Kettlebell Swing",
+      "equipment": "10\u201312 lb KB",
+      "reps": "10\u201312 reps",
+      "form_cues": [
+        "Stand with feet slightly wider than hip-width, kettlebell on the floor about a foot in front of you",
+        "Hinge at the hips to grip the bell \u2014 same pattern as the RDL. Tilt it toward you, hike it back between your legs to load the hinge.",
+        "Drive your hips forward explosively \u2014 the power comes entirely from the hip snap, not your arms",
+        "Let the bell float to chest/shoulder height \u2014 do not muscle it up with your arms or shrug at the top",
+        "As the bell descends, hinge your hips back to absorb it \u2014 redirect into the next rep",
+        "Keep your back flat throughout \u2014 if you feel it in your lower back, you're squatting the movement instead of hinging it"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+kettlebell+swing+form+tutorial"
+    },
+    {
+      "order": 3,
+      "name": "TRX Reverse Lunge",
+      "equipment": "TRX",
+      "reps": "8 reps each leg (16 total)",
+      "form_cues": [
+        "Hold TRX handles at hip height, stand with feet together",
+        "Step one foot back, lowering that knee toward the floor \u2014 the front foot stays planted",
+        "Front shin should remain roughly vertical \u2014 knee should not shoot far past your toes",
+        "Lower until back knee is 1\u20132 inches from the floor, then drive through the front heel to return",
+        "Keep your torso tall and upright throughout \u2014 do not lean forward",
+        "Use the TRX for balance only \u2014 the leg does the work",
+        "Right knee: monitor deep flexion, reduce depth before reducing load if discomfort arises"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+TRX+reverse+lunge+form"
+    },
+    {
+      "order": 4,
+      "name": "Band Hamstring Curl",
+      "equipment": "Band (low anchor)",
+      "reps": "10 reps",
+      "form_cues": [
+        "Anchor band at floor level. Loop or attach around one ankle. Lie face down with working leg extended toward anchor.",
+        "Curl your heel toward your glutes \u2014 the band gets harder as you approach full contraction",
+        "Hold at the top for 2 full seconds",
+        "Lower slowly \u2014 resist the band pulling your leg back; 3 counts down",
+        "Complete all reps on one leg, then switch. Keep hips flat against the floor \u2014 no rotation."
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+hamstring+curl+form"
+    },
+    {
+      "order": 5,
+      "name": "Band Glute Bridge",
+      "equipment": "Band (looped above knees)",
+      "reps": "15 reps",
+      "form_cues": [
+        "Loop a band just above your knees. Lie on your back, knees bent, feet flat on the floor hip-width apart.",
+        "Push your knees outward against the band \u2014 keep this outward pressure throughout the entire movement",
+        "Drive through your heels and lift your hips until your body forms a straight line from knees to shoulders",
+        "Squeeze your glutes hard at the top \u2014 pause for 1\u20132 seconds",
+        "Lower slowly \u2014 2\u20133 counts down",
+        "Keep your lower back from overarching at the top \u2014 posterior pelvic tilt slightly"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+glute+bridge+form"
+    },
+    {
+      "order": 6,
+      "name": "Standard Plank",
+      "equipment": "Bodyweight",
+      "reps": "30\u201340 sec hold",
+      "form_cues": [
+        "Forearms on the floor, elbows directly under shoulders, forearms parallel or hands clasped",
+        "Body should form a straight line from head to heels \u2014 no sagging hips, no piked hips",
+        "Squeeze your glutes, brace your abs as if bracing for a punch \u2014 hold that contraction throughout",
+        "Look at the floor, neutral neck \u2014 do not crane your head up",
+        "Breathe steadily \u2014 slow nasal inhale and exhale throughout",
+        "If form breaks before time is up, rest 5 seconds and resume rather than holding poor position"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+plank+perfect+form+tutorial"
+    }
+  ],
+  "between_rounds_stretch": {
+    "name": "TRX Hip Flexor Stretch",
+    "duration_sec": 30
+  },
+  "cooldown": [
+    {
+      "name": "Figure-4 Stretch",
+      "duration_sec": 60
+    },
+    {
+      "name": "Standing Forward Fold",
+      "duration_sec": 45
+    }
+  ]
+}
+</script>
+<div class="day-card-header" onclick="toggle('lower1')">
+<div class="day-header-left">
+<div class="day-tag">Lower Body — Session 2</div>
+<div class="day-meta">Posterior chain · Explosive · Lunge · Hamstring · Glutes · ~40 min</div>
+<div class="day-focus">RDL · KB Swing · Reverse lunge · Hamstring curl · Glute bridge · Standard plank</div>
+</div>
+<div class="toggle-icon">▾</div>
+</div>
+<div class="day-card-body">
+<div class="anchor-flow">
+<span class="anchor-label">Anchor</span>
+<span class="anchor-node curlbar">Curl Bar</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node kb">Kettlebell</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node trx">TRX</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node loops">Loops</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node bw">Bodyweight</span>
+</div>
+<div class="hr-curve">
+<span class="hr-label">HR Curve</span>
+<span class="hr-node mid">Builds</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node high">Spikes</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node mid">Elevated</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Descends</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Floor</span>
+</div>
+<div class="block">
+<div class="block-label">Warm-Up — 3–4 min</div>
+
+
+          <div class="exercise warmup-exercise" data-exercise="Hip Circles" data-youtube-url="https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Hip Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Hip Circles tutorial">►</a></div>
+            <div class="ex-timing">10 each direction</div>
+            <div class="ex-desc">Lubricates the hip joint and mobilizes the hip capsule before hinge-dominant work. The RDL and kettlebell swing both demand a well-mobilized hip — starting cold into a hinge pattern is the most common setup for lower back discomfort.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand on one foot, hands on hips or holding a wall for balance</li><li>Draw large slow circles with your lifted knee — forward, out, back, in</li><li>10 rotations each direction, each leg, making the circle as large as comfortable</li><li>Keep your standing leg slightly bent and torso upright throughout</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Forward Leg Swings" data-youtube-url="https://www.youtube.com/results?search_query=forward+leg+swings+warmup+dynamic+stretch">
+            <div class="ex-header"><span class="ex-name">Forward Leg Swings</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=forward+leg+swings+warmup+dynamic+stretch" rel="noopener" target="_blank" title="YouTube: Forward Leg Swings tutorial">►</a></div>
+            <div class="ex-timing">10 each leg</div>
+            <div class="ex-desc">Dynamic hamstring and hip flexor mobilization through their functional range. The swinging motion mimics the hip hinge pattern and prepares the posterior chain for the RDL without the compressive load of a static stretch.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand sideways to a wall, one hand on the wall for balance</li><li>Swing the outside leg forward and back in a controlled pendulum — let momentum build gradually</li><li>The forward swing stretches the hamstring; the back swing opens the hip flexor</li><li>Don't force the range — let swing amplitude increase naturally over 10 reps</li><li>Complete all reps on one leg before switching sides</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Lateral Leg Swings" data-youtube-url="https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch">
+            <div class="ex-header"><span class="ex-name">Lateral Leg Swings</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch" rel="noopener" target="_blank" title="YouTube: Lateral Leg Swings tutorial">►</a></div>
+            <div class="ex-timing">10 each leg</div>
+            <div class="ex-desc">Mobilizes hip abduction and adduction — the planes the lateral walk and glute work require. Also warms the adductors which are often the tightest structure in the lower body.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Face a wall, both hands on the wall for balance</li><li>Swing one leg across your body and back out to the side in a controlled arc</li><li>Let the swing amplitude gradually increase — don't force range on the first rep</li><li>Keep your hips level and avoid leaning your torso to compensate</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Bodyweight RDL" data-youtube-url="https://www.youtube.com/results?search_query=bodyweight+romanian+deadlift+hinge+pattern+form">
+            <div class="ex-header"><span class="ex-name">Bodyweight RDL</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=bodyweight+romanian+deadlift+hinge+pattern+form" rel="noopener" target="_blank" title="YouTube: Bodyweight RDL tutorial">►</a></div>
+            <div class="ex-timing">8 slow reps</div>
+            <div class="ex-desc">Grooves the hip hinge pattern before adding any load. The most important warmup movement for this session — if the pattern is not clean here, it will not be clean under load. Use this as a diagnostic: feel where your hamstrings engage and where your lower back wants to round.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet hip-width apart, arms hanging in front of your thighs</li><li>Push your hips back — not down. Imagine closing a car door with your backside.</li><li>Let your hands travel down the front of your legs as your hips move back</li><li>Maintain a neutral spine — feel the hamstring stretch, not the lower back</li><li>Drive hips forward to stand, squeeze glutes at the top</li><li>Pause 1 second at top and bottom — this is about pattern, not speed</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Standing Calf Raises" data-youtube-url="https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial">
+            <div class="ex-header"><span class="ex-name">Standing Calf Raises</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial" rel="noopener" target="_blank" title="YouTube: Standing Calf Raises tutorial">►</a></div>
+            <div class="ex-timing">15 reps bodyweight, full range</div>
+            <div class="ex-desc">Increases blood flow to the lower leg and ankles before the lunge and calf work. Use this to assess ankle mobility before loading it — if the heel rises early on the way down, that is the limiting factor.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet hip-width, hands lightly touching a wall for balance only</li><li>Rise all the way up onto the balls of your feet</li><li>Lower all the way down — heels at or below floor level if on a step</li><li>Slow tempo — 2 counts up, 2 counts down. This is mobility prep, not a working set.</li></ul></div>
+          </div>
+        </div>
+<div class="block">
+<div class="block-label">Circuit × 3 Rounds — Rest 20s between exercises · Rest 60–90s between rounds</div>
+<!-- Ex 1 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">01</span>
+<span class="ex-name">Curl Bar Romanian Deadlift</span>
+<span class="ex-hr mid">HR Builds</span>
+<span class="ex-equip">Curl Bar</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+romanian+deadlift+RDL+form+tutorial" rel="noopener" target="_blank" title="YouTube: Curl Bar Romanian Deadlift form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Primary movers: hamstrings, glutes, lower back</div>
+<div class="ex-desc">Opens the session by establishing the hip hinge pattern — the foundation of everything that follows. HR builds from the RDL as the large posterior chain muscles engage. The warm-up bodyweight RDL means you're grooved and ready to add load. The curl bar tracks close to the legs naturally, which is correct RDL mechanics.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand with feet hip-width apart, grip the curl bar with both hands at center, bar hanging in front of your thighs, palms facing your body</li>
+<li>Push your hips back — not down. This is a hinge, not a squat. Imagine closing a car door with your backside.</li>
+<li>Keep the bar close to your legs as it travels down — it should nearly graze your shins</li>
+<li>Maintain a neutral spine throughout — do not round the lower back</li>
+<li>Lower until you feel a stretch in your hamstrings — typically just below the knee</li>
+<li>Drive hips forward to return to standing, squeezing glutes at the top</li>
+</ul>
+</div>
+</div>
+<!-- Ex 2 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">02</span>
+<span class="ex-name">Kettlebell Swing</span>
+<span class="ex-hr high">HR Spike</span>
+<span class="ex-equip">10–12 lb KB</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+kettlebell+swing+form+tutorial" rel="noopener" target="_blank" title="YouTube: Kettlebell Swing form tutorial">▶</a>
+</div>
+<div class="ex-timing">10–12 reps · Primary movers: glutes, hamstrings, upper traps, posterior chain</div>
+<div class="ex-desc">The HR spike of the session — placed immediately after the RDL while the hip hinge pattern is fresh and warmed up. The explosive hip drive is the same mechanics as the RDL, now performed with power. This is the only truly high-HR exercise in the program and it does significant cardiovascular work in a short window. The upper traps fire dynamically to control the bell — functional upper back load without a separate exercise.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand with feet slightly wider than hip-width, kettlebell on the floor about a foot in front of you</li>
+<li>Hinge at the hips to grip the bell — same pattern as the RDL. Tilt it toward you, hike it back between your legs to load the hinge.</li>
+<li>Drive your hips forward explosively — the power comes entirely from the hip snap, not your arms</li>
+<li>Let the bell float to chest/shoulder height — do not muscle it up with your arms or shrug at the top</li>
+<li>As the bell descends, hinge your hips back to absorb it — redirect into the next rep</li>
+<li>Keep your back flat throughout — if you feel it in your lower back, you're squatting the movement instead of hinging it</li>
+</ul>
+</div>
+</div>
+<!-- Ex 3 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">03</span>
+<span class="ex-name">TRX Reverse Lunge</span>
+<span class="ex-hr mid">HR Elevated</span>
+<span class="ex-equip">TRX</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+TRX+reverse+lunge+form" rel="noopener" target="_blank" title="YouTube: TRX Reverse Lunge form tutorial">▶</a>
+</div>
+<div class="ex-timing">8 reps each leg (16 total) · TRX for balance only</div>
+<div class="ex-desc">HR comes off the swing spike but stays elevated as the largest compound lower body movement of the session begins. Trains each leg independently, exposing and correcting strength imbalances. The TRX handles provide balance assistance — grip them as lightly as possible and rely on them less as confidence grows. Quad and glute demand is high here.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Hold TRX handles at hip height, stand with feet together</li>
+<li>Step one foot back, lowering that knee toward the floor — the front foot stays planted</li>
+<li>Front shin should remain roughly vertical — knee should not shoot far past your toes</li>
+<li>Lower until back knee is 1–2 inches from the floor, then drive through the front heel to return</li>
+<li>Keep your torso tall and upright throughout — do not lean forward</li>
+<li>Use the TRX for balance only — the leg does the work</li>
+<li>Right knee: monitor deep flexion, reduce depth before reducing load if discomfort arises</li>
+</ul>
+</div>
+</div>
+<!-- Ex 4 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">04</span>
+<span class="ex-name">Band Hamstring Curl</span>
+<span class="ex-hr low">HR Descends</span>
+<span class="ex-equip">Band (low anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+hamstring+curl+form" rel="noopener" target="_blank" title="YouTube: Band Hamstring Curl form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · 2-second pause at peak contraction</div>
+<div class="ex-desc">Transitions to floor work — HR begins its controlled descent. The RDL trains hamstrings in a lengthened position via hip hinge; this trains them in a shortened position via knee flexion — the hamstring's other primary function. Together they give complete hamstring stimulus and protect the knee from imbalances that cause strains. The 2-second pause at peak contraction is the progressive overload variable for this session.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor band at floor level. Loop or attach around one ankle. Lie face down with working leg extended toward anchor.</li>
+<li>Curl your heel toward your glutes — the band gets harder as you approach full contraction</li>
+<li>Hold at the top for 2 full seconds</li>
+<li>Lower slowly — resist the band pulling your leg back; 3 counts down</li>
+<li>Complete all reps on one leg, then switch. Keep hips flat against the floor — no rotation.</li>
+</ul>
+</div>
+</div>
+<!-- Ex 5 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">05</span>
+<span class="ex-name">Band Glute Bridge</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Band (looped above knees)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+glute+bridge+form" rel="noopener" target="_blank" title="YouTube: Band Glute Bridge form tutorial">▶</a>
+</div>
+<div class="ex-timing">15 reps · Drive through heels · Squeeze at top</div>
+<div class="ex-desc">Stays on the floor from the hamstring curl — band simply moves from ankle to above knees. Directly targets the glutes through hip extension, with the band above the knees adding an abduction component that activates the glute medius. Together with the swing and lunge this gives the glutes three distinct stimuli in one session — hip drive, unilateral load, and isolated bridge extension.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Loop a band just above your knees. Lie on your back, knees bent, feet flat on the floor hip-width apart.</li>
+<li>Push your knees outward against the band — keep this outward pressure throughout the entire movement</li>
+<li>Drive through your heels and lift your hips until your body forms a straight line from knees to shoulders</li>
+<li>Squeeze your glutes hard at the top — pause for 1–2 seconds</li>
+<li>Lower slowly — 2–3 counts down</li>
+<li>Keep your lower back from overarching at the top — posterior pelvic tilt slightly</li>
+</ul>
+</div>
+</div>
+<!-- Ex 6 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">06</span>
+<span class="ex-name">Standard Plank</span>
+<span class="ex-hr low">HR Floor</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+plank+perfect+form+tutorial" rel="noopener" target="_blank" title="YouTube: Standard Plank form tutorial">▶</a>
+</div>
+<div class="ex-timing">30–40 sec hold · Focus on form over duration</div>
+<div class="ex-desc">Circuit closer — HR at its floor, controlled breathing. Core anti-extension work to complement the hip hinge and lunge patterns of the session. The plank trains the same spinal bracing you used under load in the RDL, now held isometrically. Breathe steadily throughout — holding your breath spikes blood pressure unnecessarily.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Forearms on the floor, elbows directly under shoulders, forearms parallel or hands clasped</li>
+<li>Body should form a straight line from head to heels — no sagging hips, no piked hips</li>
+<li>Squeeze your glutes, brace your abs as if bracing for a punch — hold that contraction throughout</li>
+<li>Look at the floor, neutral neck — do not crane your head up</li>
+<li>Breathe steadily — slow nasal inhale and exhale throughout</li>
+<li>If form breaks before time is up, rest 5 seconds and resume rather than holding poor position</li>
+</ul>
+</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">↔ Flexibility: TRX Hip Flexor Stretch</div>
+<div class="flex-timing">30 sec each side · Between rounds</div>
+<div class="flex-desc">In a kneeling lunge position, hold the TRX handles for support and shift your hips slightly forward, keeping your torso tall. Deep stretch in the front of the rear hip. Critical after the reverse lunge pattern — hip flexors get loaded and shortened during lunges and need active lengthening between rounds.</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label">Cool-Down — 2–3 min</div>
+<div class="flex-exercise">
+<div class="flex-name">Figure-4 Stretch <span style="color: var(--mobility-color); font-size: 11px;">⚠ Right knee: this version only — avoid pigeon pose</span></div>
+<div class="flex-timing">60 sec each side</div>
+<div class="flex-desc">Lie on your back, cross one ankle over the opposite knee, and pull both legs toward your chest. Deep glute and hip external rotator stretch. Essential after the lunge and glute bridge pattern. The figure-4 version is safer than pigeon pose for the right knee and equally effective for the target tissue.</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">Standing Forward Fold</div>
+<div class="flex-timing">30–45 sec</div>
+<div class="flex-desc">Stand with feet hip-width, hinge at hips and let your torso hang toward the floor. Bend knees slightly. Releases hamstrings and decompresses the lumbar spine after the heavy hinge and lunge work of this session.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ══════════════════════════════════════ -->
+<!-- UPPER 2 -->
+<!-- ══════════════════════════════════════ -->
+<div class="day-card upper-day open" id="upper2">
+<!-- TIMER-DATA:upper2 — machine-readable session data for timer app -->
+<script id="timer-data-upper2" type="application/json">
+{
+  "session_id": "upper2",
+  "session_name": "Upper Body \u2014 Session 3",
+  "session_type": "upper",
+  "rounds": 3,
+  "rest_between_exercises_sec": 20,
+  "rest_between_rounds_sec": 75,
+  "warmup": [
+    {
+      "name": "Arm Circles",
+      "timing": "15 sec forward, 15 sec backward",
+      "form_cues": [
+        "Stand with feet hip-width apart, arms extended straight out to your sides",
+        "Draw circles with your fingertips \u2014 start small and progressively widen to full range",
+        "15 seconds forward, then immediately reverse for 15 seconds backward",
+        "Keep shoulders away from your ears and neck relaxed throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to"
+    },
+    {
+      "name": "Shoulder Rolls",
+      "timing": "10 forward, 10 backward",
+      "form_cues": [
+        "Stand tall, arms relaxed at your sides",
+        "Roll both shoulders in a large circle \u2014 up, forward, down, back",
+        "10 full rotations forward, then reverse for 10 backward",
+        "Exaggerate the movement \u2014 make the circles as large as possible"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to"
+    },
+    {
+      "name": "Overhead Reach with Side Bend",
+      "timing": "5 each side",
+      "form_cues": [
+        "Stand with feet shoulder-width apart",
+        "Reach one arm straight overhead, then side-bend away from that arm",
+        "Hold 2\u20133 seconds at end range \u2014 feel the stretch from hip to fingertips",
+        "Return to standing and repeat on the other side",
+        "Keep the reaching arm close to your ear \u2014 don't let it drift forward"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=overhead+reach+side+bend+warmup+mobility"
+    },
+    {
+      "name": "Band Pull-Apart",
+      "timing": "15 reps",
+      "form_cues": [
+        "Hold a light band at shoulder height, arms extended, hands shoulder-width apart",
+        "Pull the band apart driving both arms out to your sides until band touches your chest",
+        "Squeeze shoulder blades together at end range \u2014 hold 1 second",
+        "Return slowly \u2014 resist the band pulling your hands back together",
+        "Keep elbows straight and shoulders away from your ears throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial"
+    },
+    {
+      "name": "Wrist Circles",
+      "timing": "10 each direction",
+      "form_cues": [
+        "Extend both arms in front of you, hands loose",
+        "Make slow deliberate circles \u2014 10 clockwise, 10 counterclockwise",
+        "Follow with 10 gentle wrist flexions and extensions"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to"
+    }
+  ],
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Band Lat Pulldown",
+      "equipment": "Band (high anchor)",
+      "reps": "10 reps",
+      "form_cues": [
+        "Anchor band at maximum height. Grip one end in each hand, arms extended overhead.",
+        "Take a step or two back from the anchor to create diagonal band tension, feet shoulder-width apart",
+        "Sit into a quarter-squat position and hold it throughout the set",
+        "Pull the band down toward your chest by driving your elbows down and back \u2014 think \"elbows to hip pockets\"",
+        "At the bottom, squeeze your lats hard \u2014 you should feel the contraction in the sides of your back",
+        "Return with control \u2014 fully extend arms overhead to complete lat stretch at the top of each rep"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+lat+pulldown+form"
+    },
+    {
+      "order": 2,
+      "name": "Band Face Pull",
+      "equipment": "Band (high anchor \u2014 no change)",
+      "reps": "12 reps",
+      "form_cues": [
+        "Grip one end in each hand, palms facing down, thumbs toward you. Step back until there's tension with arms extended.",
+        "Pull the band toward your face, leading with your elbows \u2014 elbows should flare out and up, finishing above shoulder height",
+        "At full pull, your hands should be beside your ears \u2014 like a double bicep pose",
+        "The key finish: externally rotate \u2014 pull your knuckles back so your palms face forward. This activates the lower traps and rotator cuff.",
+        "Return slowly with control \u2014 do not let the band snap your arms forward"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+band+face+pull+form+tutorial"
+    },
+    {
+      "order": 3,
+      "name": "Band Overhead Press",
+      "equipment": "Band (low anchor)",
+      "reps": "12 reps",
+      "form_cues": [
+        "Anchor band at low point. Stand facing away from the anchor, hold the band at shoulder height with palms facing forward.",
+        "Press directly overhead until arms are fully extended",
+        "Keep your core braced \u2014 do not arch your lower back or lean back as you press overhead",
+        "Avoid shrugging your shoulders at the top \u2014 keep them packed down even at full extension",
+        "Lower with control \u2014 2 counts down \u2014 resist the band on the way back"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+overhead+press+form"
+    },
+    {
+      "order": 4,
+      "name": "Band Lateral Raise",
+      "equipment": "Band (low anchor \u2014 no change)",
+      "reps": "10 reps",
+      "form_cues": [
+        "Stand with feet hip-width, grip band ends at your sides, slight bend at the elbow",
+        "Raise both arms simultaneously out to the sides until they reach shoulder height \u2014 no higher",
+        "Lead with your elbows, not your hands \u2014 think of pouring water out of a pitcher at the top",
+        "Do not shrug \u2014 keep shoulders packed down as the arms rise",
+        "No momentum or body rocking \u2014 if you have to swing, reduce band tension",
+        "Lower slowly \u2014 3 counts down"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+lateral+raise+form"
+    },
+    {
+      "order": 5,
+      "name": "Band Bicep Curl",
+      "equipment": "Band (low anchor \u2014 no change)",
+      "reps": "10 reps",
+      "form_cues": [
+        "Stand facing the anchor, grip one end in each hand, palms facing forward, arms extended toward anchor with slight tension",
+        "Keep your elbows pinned to your sides throughout",
+        "Curl both hands up toward your shoulders \u2014 the band gets progressively harder as you approach the top",
+        "Squeeze hard at peak contraction for 1 second before lowering",
+        "Lower slowly \u2014 3 counts down \u2014 resist the band pulling your hands back down"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+bicep+curl+form"
+    },
+    {
+      "order": 6,
+      "name": "Standard Plank",
+      "equipment": "Bodyweight",
+      "reps": "30\u201340 sec hold",
+      "form_cues": [
+        "Forearms on the floor, elbows directly under shoulders",
+        "Body should form a straight line from head to heels \u2014 no sagging hips, no piked hips",
+        "Squeeze glutes, brace abs \u2014 hold that contraction throughout",
+        "Look at the floor, neutral neck",
+        "Breathe steadily \u2014 slow nasal inhale and exhale",
+        "If form breaks before time is up, rest 5 seconds and resume"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+plank+perfect+form+tutorial"
+    }
+  ],
+  "between_rounds_stretch": {
+    "name": "Thread the Needle",
+    "duration_sec": 30
+  },
+  "cooldown": [
+    {
+      "name": "Child's Pose",
+      "duration_sec": 45
+    },
+    {
+      "name": "Doorway Chest Stretch",
+      "duration_sec": 30
+    }
+  ]
+}
+</script>
+<div class="day-card-header" onclick="toggle('upper2')">
+<div class="day-header-left">
+<div class="day-tag">Upper Body — Session 3</div>
+<div class="day-meta">Vertical pull · Shoulder detail · Core stability · ~40 min</div>
+<div class="day-focus">Lat pulldown · Face pull · Overhead press · Lateral raise · Bicep curl · Standard plank</div>
+</div>
+<div class="toggle-icon">▾</div>
+</div>
+<div class="day-card-body">
+<div class="anchor-flow">
+<span class="anchor-label">Anchor</span>
+<span class="anchor-node high">High</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node high">High</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node bw">Bodyweight</span>
+</div>
+<div class="hr-curve">
+<span class="hr-label">HR Curve</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Descends</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Floor</span>
+</div>
+<div class="block">
+<div class="block-label">Warm-Up — 3–4 min</div>
+
+
+          <div class="exercise warmup-exercise" data-exercise="Arm Circles" data-youtube-url="https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to">
+            <div class="ex-header"><span class="ex-name">Arm Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=arm+circles+warmup+form+how+to" rel="noopener" target="_blank" title="YouTube: Arm Circles tutorial">►</a></div>
+            <div class="ex-timing">15 sec forward, 15 sec backward</div>
+            <div class="ex-desc">Lubricates the shoulder joint before the vertical pulling and pressing demands of this session. The lat pulldown and overhead press both require a well-mobilized shoulder capsule.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet hip-width apart, arms extended straight out to your sides</li><li>Draw circles with your fingertips — start small and progressively widen to full range</li><li>15 seconds forward, then immediately reverse for 15 seconds backward</li><li>Keep shoulders away from your ears and neck relaxed throughout</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Shoulder Rolls" data-youtube-url="https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Shoulder Rolls</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=shoulder+rolls+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Shoulder Rolls tutorial">►</a></div>
+            <div class="ex-timing">10 forward, 10 backward</div>
+            <div class="ex-desc">Mobilizes the scapulae before the vertical pulling work ahead. The lat pulldown and face pull both require scapular depression and retraction — this gets those muscles firing before the load arrives.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand tall, arms relaxed at your sides</li><li>Roll both shoulders in a large circle — up, forward, down, back</li><li>10 full rotations forward, then reverse for 10 backward</li><li>Exaggerate the movement — make the circles as large as possible</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Overhead Reach with Side Bend" data-youtube-url="https://www.youtube.com/results?search_query=overhead+reach+side+bend+warmup+mobility">
+            <div class="ex-header"><span class="ex-name">Overhead Reach with Side Bend</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=overhead+reach+side+bend+warmup+mobility" rel="noopener" target="_blank" title="YouTube: Overhead Reach with Side Bend tutorial">►</a></div>
+            <div class="ex-timing">5 each side</div>
+            <div class="ex-desc">Opens the lateral line — lats, obliques, and intercostals — before overhead pressing. If the lat is tight, the overhead press compensates by arching the lower back. This prevents that.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet shoulder-width apart</li><li>Reach one arm straight overhead, then side-bend away from that arm</li><li>Hold 2–3 seconds at end range — feel the stretch from hip to fingertips</li><li>Return to standing and repeat on the other side</li><li>Keep the reaching arm close to your ear — don't let it drift forward</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Band Pull-Apart" data-youtube-url="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial">
+            <div class="ex-header"><span class="ex-name">Band Pull-Apart</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+form+tutorial" rel="noopener" target="_blank" title="YouTube: Band Pull-Apart tutorial">►</a></div>
+            <div class="ex-timing">15 reps</div>
+            <div class="ex-desc">Critical activation before the vertical pulling work in this session. The lat pulldown and face pull rely on rear delt and lower trap function — this ensures they are firing before the load arrives rather than the biceps and upper traps compensating.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Hold a light band at shoulder height, arms extended, hands shoulder-width apart</li><li>Pull the band apart driving both arms out to your sides until band touches your chest</li><li>Squeeze shoulder blades together at end range — hold 1 second</li><li>Return slowly — resist the band pulling your hands back together</li><li>Keep elbows straight and shoulders away from your ears throughout</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Wrist Circles" data-youtube-url="https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Wrist Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=wrist+circles+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Wrist Circles tutorial">►</a></div>
+            <div class="ex-timing">10 each direction</div>
+            <div class="ex-desc">Prepares the wrists for the grip demands of the lat pulldown and overhead press. The overhead position places the wrist in extension under load — a few circles prevents the sharp discomfort that catches people off guard.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Extend both arms in front of you, hands loose</li><li>Make slow deliberate circles — 10 clockwise, 10 counterclockwise</li><li>Follow with 10 gentle wrist flexions and extensions</li></ul></div>
+          </div>
+        </div>
+<div class="block">
+<div class="block-label">Circuit × 3 Rounds — Rest 20s between exercises · Rest 60–90s between rounds</div>
+<div class="block-label" style="color: var(--lower-color); opacity: 0.8; margin-top: -8px;">Anchor sequence: High × 2 → Low × 3 → Bodyweight — two positions, one direction</div>
+<!-- Ex 1 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">01</span>
+<span class="ex-name">Band Lat Pulldown</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">Band (high anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+lat+pulldown+form" rel="noopener" target="_blank" title="YouTube: Band Lat Pulldown form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Primary movers: lats, lower traps, biceps</div>
+<div class="ex-desc">Opens with the vertical pull — the movement pattern with no coverage in Upper 1. Pulling down from overhead targets the lats through their full range, which is not achievable from a horizontal pull. The quarter-squat hold position means your legs are also working isometrically, which contributes modestly to HR from the start.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor band at maximum height. Grip one end in each hand, arms extended overhead.</li>
+<li>Take a step or two back from the anchor to create diagonal band tension, feet shoulder-width apart</li>
+<li>Sit into a quarter-squat position and hold it throughout the set</li>
+<li>Pull the band down toward your chest by driving your elbows down and back — think "elbows to hip pockets"</li>
+<li>At the bottom, squeeze your lats hard — you should feel the contraction in the sides of your back</li>
+<li>Return with control — fully extend arms overhead to complete lat stretch at the top of each rep</li>
+</ul>
+</div>
+</div>
+<!-- Ex 2 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">02</span>
+<span class="ex-name">Band Face Pull</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">Band (high anchor — no change)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+band+face+pull+form+tutorial" rel="noopener" target="_blank" title="YouTube: Band Face Pull form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 reps · Primary movers: rear delts, lower traps, external rotators</div>
+<div class="ex-desc">High anchor stays set — no transition. Where the lat pulldown pulls vertically to target the lats, the face pull pulls horizontally-high to target the rear delts and external rotators — complementary angles on the same posterior chain. Together these two exercises give the upper back complete stimulus. The external rotation finish is what differentiates this from a simple rear delt exercise and makes it therapeutically important for shoulder health.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Grip one end in each hand, palms facing down, thumbs toward you. Step back until there's tension with arms extended.</li>
+<li>Pull the band toward your face, leading with your elbows — elbows should flare out and up, finishing above shoulder height</li>
+<li>At full pull, your hands should be beside your ears — like a double bicep pose</li>
+<li>The key finish: externally rotate — pull your knuckles back so your palms face forward. This activates the lower traps and rotator cuff.</li>
+<li>Return slowly with control — do not let the band snap your arms forward</li>
+</ul>
+</div>
+</div>
+<!-- Ex 3 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">03</span>
+<span class="ex-name">Band Overhead Press</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">Band (low anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+overhead+press+form" rel="noopener" target="_blank" title="YouTube: Band Overhead Press form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 reps · Primary movers: shoulders, triceps, upper traps</div>
+<div class="ex-desc">Anchor drops to low — one anchor change. The vertical push that complements the vertical pull of the lat pulldown. Three consecutive compound movements keeps HR elevated through the first half of the circuit. The low anchor means resistance increases as you press overhead, which matches the shoulder's strength curve better than dumbbells at this range of motion.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor band at low point. Stand facing away from the anchor, hold the band at shoulder height with palms facing forward.</li>
+<li>Press directly overhead until arms are fully extended</li>
+<li>Keep your core braced — do not arch your lower back or lean back as you press overhead</li>
+<li>Avoid shrugging your shoulders at the top — keep them packed down even at full extension</li>
+<li>Lower with control — 2 counts down — resist the band on the way back</li>
+</ul>
+</div>
+</div>
+<!-- Ex 4 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">04</span>
+<span class="ex-name">Band Lateral Raise</span>
+<span class="ex-hr low">HR Descends</span>
+<span class="ex-equip">Band (low anchor — no change)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+lateral+raise+form" rel="noopener" target="_blank" title="YouTube: Band Lateral Raise form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Controlled tempo — no swinging</div>
+<div class="ex-desc">Low anchor stays set — no transition. HR begins its descent into isolation work. Targets the medial deltoid, which gives the shoulder its width and roundness. This muscle has no coverage in Upper 1 — it belongs in Upper 2 specifically because the lateral raise is a controlled, lower-intensity exercise that fits the descending arc of this circuit well.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand with feet hip-width, grip band ends at your sides, slight bend at the elbow</li>
+<li>Raise both arms simultaneously out to the sides until they reach shoulder height — no higher</li>
+<li>Lead with your elbows, not your hands — think of pouring water out of a pitcher at the top</li>
+<li>Do not shrug — keep shoulders packed down as the arms rise</li>
+<li>No momentum or body rocking — if you have to swing, reduce band tension</li>
+<li>Lower slowly — 3 counts down</li>
+</ul>
+</div>
+</div>
+<!-- Ex 5 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">05</span>
+<span class="ex-name">Band Bicep Curl</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Band (low anchor — no change)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+bicep+curl+form" rel="noopener" target="_blank" title="YouTube: Band Bicep Curl form tutorial">▶</a>
+</div>
+<div class="ex-timing">10 reps · Primary movers: biceps brachii</div>
+<div class="ex-desc">Low anchor unchanged — zero transition from the lateral raise. Second bicep stimulus of the week, different implement from Upper 1's curl bar. Band delivers peak tension at peak contraction where the bicep is strongest, complementing the curl bar version. Three consecutive low anchor exercises in a row means the second half of this circuit flows without any setup changes.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand facing the anchor, grip one end in each hand, palms facing forward, arms extended toward anchor with slight tension</li>
+<li>Keep your elbows pinned to your sides throughout</li>
+<li>Curl both hands up toward your shoulders — the band gets progressively harder as you approach the top</li>
+<li>Squeeze hard at peak contraction for 1 second before lowering</li>
+<li>Lower slowly — 3 counts down — resist the band pulling your hands back down</li>
+</ul>
+</div>
+</div>
+<!-- Ex 6 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">06</span>
+<span class="ex-name">Standard Plank</span>
+<span class="ex-hr low">HR Floor</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+plank+perfect+form+tutorial" rel="noopener" target="_blank" title="YouTube: Standard Plank form tutorial">▶</a>
+</div>
+<div class="ex-timing">30–40 sec hold · Controlled breathing throughout</div>
+<div class="ex-desc">Circuit closer — HR at floor, controlled breathing. Core stability work closes both upper sessions. The plank here reinforces the shoulder and scapular stability that the pressing and pulling movements require. Maintaining shoulder pack and core brace in a static position consolidates the neuromuscular patterns from the session.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Forearms on the floor, elbows directly under shoulders</li>
+<li>Body should form a straight line from head to heels — no sagging hips, no piked hips</li>
+<li>Squeeze glutes, brace abs — hold that contraction throughout</li>
+<li>Look at the floor, neutral neck</li>
+<li>Breathe steadily — slow nasal inhale and exhale</li>
+<li>If form breaks before time is up, rest 5 seconds and resume</li>
+</ul>
+</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">↔ Flexibility: Thread the Needle</div>
+<div class="flex-timing">30 sec each side · Between rounds</div>
+<div class="flex-desc">Start on hands and knees. Slide one arm along the floor under your body, rotating your thoracic spine until that shoulder touches the ground. Hold. Opens the mid-back and chest — counteracts the compression from pressing and pulling. Alternate sides each round.</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label">Cool-Down — 2 min</div>
+<div class="flex-exercise">
+<div class="flex-name">Child's Pose</div>
+<div class="flex-timing">30–45 sec</div>
+<div class="flex-desc">Kneel and sit back toward your heels, arms extended forward on the floor. Breathe deeply into your lower back. Decompresses the spine and stretches lats after overhead pressing and vertical pulling.</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">Doorway Chest Stretch</div>
+<div class="flex-timing">30 sec each side</div>
+<div class="flex-desc">Stand in a doorway, forearm on the frame at 90°, rotate your body away until you feel a stretch across your chest and front shoulder. Counteracts anterior shoulder tightening from the pressing volume in this session.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- ══════════════════════════════════════ -->
+<!-- LOWER 2 -->
+<!-- ══════════════════════════════════════ -->
+<div class="day-card lower-day open" id="lower2">
+<!-- TIMER-DATA:lower2 — machine-readable session data for timer app -->
+<script id="timer-data-lower2" type="application/json">
+{
+  "session_id": "lower2",
+  "session_name": "Lower Body \u2014 Session 4",
+  "session_type": "lower",
+  "rounds": 3,
+  "rest_between_exercises_sec": 20,
+  "rest_between_rounds_sec": 75,
+  "warmup": [
+    {
+      "name": "Lateral Leg Swings",
+      "timing": "10 each leg",
+      "form_cues": [
+        "Face a wall, both hands on the wall for balance",
+        "Swing one leg across your body and back out to the side in a controlled arc",
+        "Let amplitude gradually increase over 10 reps \u2014 don't force range on rep 1",
+        "Keep hips level and avoid leaning your torso to compensate"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch"
+    },
+    {
+      "name": "Bodyweight Sumo Squat",
+      "timing": "8 slow reps",
+      "form_cues": [
+        "Stand with feet wider than shoulder-width, toes turned out 30\u201345 degrees",
+        "Sit straight down between your heels \u2014 push your knees out in line with your toes",
+        "Lower until thighs are parallel to the floor or as deep as comfortable",
+        "Drive through your heels to stand, squeezing glutes at the top",
+        "Pause 1 second at the bottom \u2014 feel the inner thigh stretch each rep"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=bodyweight+sumo+squat+form+tutorial+warmup"
+    },
+    {
+      "name": "Ankle Circles",
+      "timing": "10 each direction each foot",
+      "form_cues": [
+        "Sit or stand on one foot, lift the other foot slightly off the floor",
+        "Draw large slow circles with your lifted foot \u2014 10 clockwise, 10 counterclockwise",
+        "Make the circles as large as possible through the full ankle range",
+        "Complete all reps on one foot before switching"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=ankle+circles+warmup+mobility+how+to"
+    },
+    {
+      "name": "Standing Calf Raises",
+      "timing": "15 reps bodyweight, full range, slow",
+      "form_cues": [
+        "Stand with feet hip-width, hands lightly on a wall for balance",
+        "Rise all the way up onto the balls of your feet",
+        "Lower all the way down \u2014 heels at or below floor level if on a step",
+        "2 counts up, 2 counts down \u2014 this is prep, not a working set"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial"
+    },
+    {
+      "name": "Hip Circles",
+      "timing": "8 each direction",
+      "form_cues": [
+        "Stand on one foot, hands on hips or holding a wall for balance",
+        "Draw large slow circles with your lifted knee \u2014 forward, out, back, in",
+        "8 rotations each direction, each leg",
+        "Keep your standing leg slightly bent and torso tall throughout"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to"
+    }
+  ],
+  "exercises": [
+    {
+      "order": 1,
+      "name": "Band Lateral Walk",
+      "equipment": "Band (looped above knees)",
+      "reps": "12 steps each direction",
+      "form_cues": [
+        "Loop band just above knees. Stand with feet hip-width, slight bend in knees, slight forward lean from hips \u2014 athletic stance.",
+        "Step sideways with your lead foot, then follow with the trail foot \u2014 keep band taut throughout, never let feet come together completely",
+        "Keep your hips low and level \u2014 do not bob up and down with each step",
+        "You should feel the outer glute of the stepping leg; the adductor of the returning leg on the close step",
+        "12 steps right, then 12 steps left = 1 set. Stay in the athletic position the entire time."
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+lateral+walk+glute+medius"
+    },
+    {
+      "order": 2,
+      "name": "Band Adductor Side-Lying Squeeze",
+      "equipment": "Band (loops above knees \u2014 no change)",
+      "reps": "15 reps each side",
+      "form_cues": [
+        "Lie on your side with band looped just above your knees. Stack hips directly on top of each other \u2014 don't roll back.",
+        "Bottom leg is the working leg. Top leg rests elevated on a pillow or folded towel.",
+        "Lift the bottom leg up toward the top leg, squeezing your inner thigh to initiate the movement",
+        "Pause at the top for 1 second, then lower with control",
+        "Complete all reps on one side, then roll over and repeat",
+        "If the band makes this too difficult initially, do it without the band \u2014 bodyweight is sufficient to start"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=resistance+band+adductor+side+lying+inner+thigh+squeeze+form"
+    },
+    {
+      "order": 3,
+      "name": "Standing Hip Flexor March",
+      "equipment": "Band (low anchor)",
+      "reps": "12 reps each leg",
+      "form_cues": [
+        "Anchor a band at floor level. Loop it around your ankle or secure it to your foot.",
+        "Stand upright facing away from the anchor, slight tension in the band with the working leg extended back",
+        "Drive your knee upward toward your chest \u2014 aim for thigh parallel to the floor or higher",
+        "Hold the top position for 1 full second \u2014 you should feel the front of your hip working",
+        "Lower with control \u2014 do not let the band yank your leg back; resist it on the way down",
+        "Keep your standing leg slightly bent and your torso tall \u2014 do not lean back to compensate"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=resistance+band+standing+hip+flexor+march+form"
+    },
+    {
+      "order": 4,
+      "name": "Band Glute Bridge",
+      "equipment": "Band (looped above knees)",
+      "reps": "15 reps",
+      "form_cues": [
+        "Loop a band just above your knees. Lie on your back, knees bent, feet flat on the floor hip-width apart.",
+        "Push your knees outward against the band throughout the entire movement",
+        "Drive through your heels and lift your hips until your body forms a straight line from knees to shoulders",
+        "Squeeze your glutes hard at the top \u2014 pause for 1\u20132 seconds",
+        "Lower slowly \u2014 2\u20133 counts down",
+        "Lie on your side, prop yourself up on your forearm \u2014 elbow directly under your shoulder",
+        "Stack your feet or stagger them (top foot in front) for a wider base if needed",
+        "Lift your hips off the floor until your body forms a straight diagonal line from head to heels",
+        "Drive your bottom hip upward slightly \u2014 actively push rather than just hanging in position",
+        "Keep your top arm along your side or reach it toward the ceiling for added challenge",
+        "If the full version is too difficult, bend your knees \u2014 same alignment rules apply, just a shorter lever",
+        "Stand on one foot with a slight touch of a wall or doorframe for balance only \u2014 not support",
+        "Rise all the way up onto the ball of your foot \u2014 as high as possible",
+        "Lower all the way down until your heel is at or slightly below floor level \u2014 edge of a step if available",
+        "The lowering phase is critical \u2014 most people skip it, but the stretch at the bottom is where strength gains occur",
+        "2 counts up, 1-second hold at top, 3 counts down",
+        "Complete all reps on one leg before switching"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+resistance+band+glute+bridge+form"
+    },
+    {
+      "order": 5,
+      "name": "Side Plank",
+      "equipment": "Bodyweight",
+      "reps": "25\u201335 sec each side",
+      "form_cues": [
+        "Lie on your side, prop yourself up on your forearm \u2014 elbow directly under your shoulder",
+        "Stack your feet or stagger them (top foot in front) for a wider base if needed",
+        "Lift your hips off the floor until your body forms a straight diagonal line from head to heels",
+        "Drive your bottom hip upward slightly \u2014 actively push rather than just hanging in position",
+        "Keep your top arm along your side or reach it toward the ceiling for added challenge",
+        "If the full version is too difficult, bend your knees \u2014 same alignment rules apply, just a shorter lever"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+side+plank+form+tutorial"
+    },
+    {
+      "order": 6,
+      "name": "Single-Leg Calf Raise",
+      "equipment": "Bodyweight (use wall for balance)",
+      "reps": "12 reps each leg",
+      "form_cues": [
+        "Stand on one foot with a slight touch of a wall or doorframe for balance only \u2014 not support",
+        "Rise all the way up onto the ball of your foot \u2014 as high as possible",
+        "Lower all the way down until your heel is at or slightly below floor level \u2014 edge of a step if available",
+        "The lowering phase is critical \u2014 most people skip it, but the stretch at the bottom is where strength gains occur",
+        "2 counts up, 1-second hold at top, 3 counts down",
+        "Complete all reps on one leg before switching"
+      ],
+      "youtube_url": "https://www.youtube.com/results?search_query=athlean-x+single+leg+calf+raise+form"
+    }
+  ],
+  "between_rounds_stretch": {
+    "name": "Lateral Hip Opener",
+    "duration_sec": 30
+  },
+  "cooldown": [
+    {
+      "name": "Standing Single-Leg Calf Stretch",
+      "duration_sec": 45
+    },
+    {
+      "name": "90/90 Hip Stretch",
+      "duration_sec": 60
+    }
+  ]
+}
+</script>
+<div class="day-card-header" onclick="toggle('lower2')">
+<div class="day-header-left">
+<div class="day-tag">Lower Body — Session 4</div>
+<div class="day-meta">Hip stability · Adductors · Hip flexors · Calves · Core · ~40 min</div>
+<div class="day-focus">Lateral walk · Adductor squeeze · Hip flexor march · Glute bridge · Side plank · Calf raise</div>
+</div>
+<div class="toggle-icon">▾</div>
+</div>
+<div class="day-card-body">
+<div class="anchor-flow">
+<span class="anchor-label">Anchor</span>
+<span class="anchor-node loops">Loops</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node loops">Loops</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node loops">Loops</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node bw">Bodyweight</span>
+<span class="anchor-arrow">→</span>
+<span class="anchor-node bw">Bodyweight</span>
+</div>
+<div class="hr-curve">
+<span class="hr-label">HR Curve</span>
+<span class="hr-node mid">Moderate</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Drops</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Low</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Floor</span>
+<span class="anchor-arrow">→</span>
+<span class="hr-node low">Floor</span>
+</div>
+<div class="block">
+<div class="block-label">Warm-Up — 3–4 min</div>
+
+
+          <div class="exercise warmup-exercise" data-exercise="Lateral Leg Swings" data-youtube-url="https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch">
+            <div class="ex-header"><span class="ex-name">Lateral Leg Swings</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=lateral+leg+swings+warmup+dynamic+stretch" rel="noopener" target="_blank" title="YouTube: Lateral Leg Swings tutorial">►</a></div>
+            <div class="ex-timing">10 each leg</div>
+            <div class="ex-desc">Directly primes the adductors and glute medius before a session built around those muscles. The lateral walk and adductor squeeze both require hip abduction and adduction range — this mobilizes those planes before loading them.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Face a wall, both hands on the wall for balance</li><li>Swing one leg across your body and back out to the side in a controlled arc</li><li>Let amplitude gradually increase over 10 reps — don't force range on rep 1</li><li>Keep hips level and avoid leaning your torso to compensate</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Bodyweight Sumo Squat" data-youtube-url="https://www.youtube.com/results?search_query=bodyweight+sumo+squat+form+tutorial+warmup">
+            <div class="ex-header"><span class="ex-name">Bodyweight Sumo Squat</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=bodyweight+sumo+squat+form+tutorial+warmup" rel="noopener" target="_blank" title="YouTube: Bodyweight Sumo Squat tutorial">►</a></div>
+            <div class="ex-timing">8 slow reps</div>
+            <div class="ex-desc">Primes the wide-stance pattern and inner thigh before the adductor-dominant work in this session. Use this to find your comfortable sumo stance width before adding any resistance.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet wider than shoulder-width, toes turned out 30–45 degrees</li><li>Sit straight down between your heels — push your knees out in line with your toes</li><li>Lower until thighs are parallel to the floor or as deep as comfortable</li><li>Drive through your heels to stand, squeezing glutes at the top</li><li>Pause 1 second at the bottom — feel the inner thigh stretch each rep</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Ankle Circles" data-youtube-url="https://www.youtube.com/results?search_query=ankle+circles+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Ankle Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=ankle+circles+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Ankle Circles tutorial">►</a></div>
+            <div class="ex-timing">10 each direction each foot</div>
+            <div class="ex-desc">Ankle mobility directly affects the depth and comfort of the sumo squat and the effectiveness of the calf raise. Restricted ankles cause the heel to lift and the knee to cave — this is the simplest fix.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Sit or stand on one foot, lift the other foot slightly off the floor</li><li>Draw large slow circles with your lifted foot — 10 clockwise, 10 counterclockwise</li><li>Make the circles as large as possible through the full ankle range</li><li>Complete all reps on one foot before switching</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Standing Calf Raises" data-youtube-url="https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial">
+            <div class="ex-header"><span class="ex-name">Standing Calf Raises</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+standing+calf+raise+form+tutorial" rel="noopener" target="_blank" title="YouTube: Standing Calf Raises tutorial">►</a></div>
+            <div class="ex-timing">15 reps bodyweight, full range, slow</div>
+            <div class="ex-desc">Increases blood flow to the lower leg before the calf work at the end of this session. Also assesses ankle range — if the heel rises early on the way down, ankle mobility is the limiting factor.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand with feet hip-width, hands lightly on a wall for balance</li><li>Rise all the way up onto the balls of your feet</li><li>Lower all the way down — heels at or below floor level if on a step</li><li>2 counts up, 2 counts down — this is prep, not a working set</li></ul></div>
+          </div>
+          <div class="exercise warmup-exercise" data-exercise="Hip Circles" data-youtube-url="https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to">
+            <div class="ex-header"><span class="ex-name">Hip Circles</span> <span class="ex-equip">Warmup</span> <a class="yt-link" href="https://www.youtube.com/results?search_query=standing+hip+circles+warmup+mobility+how+to" rel="noopener" target="_blank" title="YouTube: Hip Circles tutorial">►</a></div>
+            <div class="ex-timing">8 each direction</div>
+            <div class="ex-desc">Mobilizes the hip joint before the hip flexor march and glute bridge work. The hip flexor march requires active hip flexion range — circles warm the joint capsule and get the psoas firing before it works under resistance.</div>
+            <div class="form-cues"><div class="form-cues-label">How To</div><ul class="cue-list"><li>Stand on one foot, hands on hips or holding a wall for balance</li><li>Draw large slow circles with your lifted knee — forward, out, back, in</li><li>8 rotations each direction, each leg</li><li>Keep your standing leg slightly bent and torso tall throughout</li></ul></div>
+          </div>
+        </div>
+<div class="block">
+<div class="block-label">Circuit × 3 Rounds — Rest 20s between exercises · Rest 60–90s between rounds</div>
+<div class="block-label" style="color: var(--lower-color); opacity: 0.8; margin-top: -8px;">Loops stay on for first two exercises · Low anchor for hip flexor march · Back to loops for bridge · Bodyweight to close</div>
+<!-- Ex 1 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">01</span>
+<span class="ex-name">Band Lateral Walk</span>
+<span class="ex-hr mid">Moderate HR</span>
+<span class="ex-equip">Band (looped above knees)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+lateral+walk+glute+medius" rel="noopener" target="_blank" title="YouTube: Band Lateral Walk form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 steps each direction · Stay in athletic position throughout</div>
+<div class="ex-desc">Opens the session standing with the most cardiovascularly demanding exercise in this circuit — establishes HR before moving to the floor. The glute medius is the primary target: chronically undertrained and directly responsible for knee tracking, hip stability, and lower back health. The lateral walk loads it through its primary function — hip abduction under load. The band's return phase simultaneously loads the adductors.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Loop band just above knees. Stand with feet hip-width, slight bend in knees, slight forward lean from hips — athletic stance.</li>
+<li>Step sideways with your lead foot, then follow with the trail foot — keep band taut throughout, never let feet come together completely</li>
+<li>Keep your hips low and level — do not bob up and down with each step</li>
+<li>You should feel the outer glute of the stepping leg; the adductor of the returning leg on the close step</li>
+<li>12 steps right, then 12 steps left = 1 set. Stay in the athletic position the entire time.</li>
+</ul>
+</div>
+</div>
+<!-- Ex 2 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">02</span>
+<span class="ex-name">Band Adductor Side-Lying Squeeze</span>
+<span class="ex-hr low">HR Drops</span>
+<span class="ex-equip">Band (loops above knees — no change)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=resistance+band+adductor+side+lying+inner+thigh+squeeze+form" rel="noopener" target="_blank" title="YouTube: Band Adductor Side-Lying Squeeze form tutorial">▶</a>
+</div>
+<div class="ex-timing">15 reps each side · Slow squeeze, slow release</div>
+<div class="ex-desc">Loops stay on from the lateral walk — move directly to the floor. Direct adductor isolation after the compound lateral walk loaded them in their secondary role. Building adductor baseline strength is particularly important at 50+ when connective tissue recovery slows and groin strains become more costly. HR drops intentionally here — this is the active recovery point of this session before the hip flexor work ahead.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Lie on your side with band looped just above your knees. Stack hips directly on top of each other — don't roll back.</li>
+<li>Bottom leg is the working leg. Top leg rests elevated on a pillow or folded towel.</li>
+<li>Lift the bottom leg up toward the top leg, squeezing your inner thigh to initiate the movement</li>
+<li>Pause at the top for 1 second, then lower with control</li>
+<li>Complete all reps on one side, then roll over and repeat</li>
+<li>If the band makes this too difficult initially, do it without the band — bodyweight is sufficient to start</li>
+</ul>
+</div>
+</div>
+<!-- Ex 3 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">03</span>
+<span class="ex-name">Standing Hip Flexor March</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Band (low anchor)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=resistance+band+standing+hip+flexor+march+form" rel="noopener" target="_blank" title="YouTube: Standing Hip Flexor March form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 reps each leg · Slow and deliberate</div>
+<div class="ex-desc">One anchor change — loops off, band moves to low anchor. Hip flexors are stretched throughout the program but this is their only direct strengthening work. Weak hip flexors contribute to lower back pain, poor posture, and reduced stride efficiency. The slow deliberate tempo here is intentional — this is strength work for an underserved muscle, not a cardio exercise.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Anchor a band at floor level. Loop it around your ankle or secure it to your foot.</li>
+<li>Stand upright facing away from the anchor, slight tension in the band with the working leg extended back</li>
+<li>Drive your knee upward toward your chest — aim for thigh parallel to the floor or higher</li>
+<li>Hold the top position for 1 full second — you should feel the front of your hip working</li>
+<li>Lower with control — do not let the band yank your leg back; resist it on the way down</li>
+<li>Keep your standing leg slightly bent and your torso tall — do not lean back to compensate</li>
+</ul>
+</div>
+</div>
+<!-- Ex 4 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">04</span>
+<span class="ex-name">Band Glute Bridge</span>
+<span class="ex-hr low">Low HR</span>
+<span class="ex-equip">Band (looped above knees)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+resistance+band+glute+bridge+form" rel="noopener" target="_blank" title="YouTube: Band Glute Bridge form tutorial">▶</a>
+</div>
+<div class="ex-timing">15 reps · Drive through heels · Squeeze at top</div>
+<div class="ex-desc">Loops back above the knees — move to the floor. Second weekly glute bridge stimulus, appearing in both lower sessions for frequency. Glutes recover well and respond to twice-weekly direct work. On this day the bridge follows the lateral walk and adductor work, so the glute medius is already activated — the bridge here will feel more connected than when performed cold.
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Loop a band just above your knees. Lie on your back, knees bent, feet flat on the floor hip-width apart.</li>
+<li>Push your knees outward against the band throughout the entire movement</li>
+<li>Drive through your heels and lift your hips until your body forms a straight line from knees to shoulders</li>
+<li>Squeeze your glutes hard at the top — pause for 1–2 seconds</li>
+<li>Lower slowly — 2–3 counts down</li>
+</ul>
+</div>
+</div>
+<!-- Ex 5 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">05</span>
+<span class="ex-name">Side Plank</span>
+<span class="ex-hr low">HR Floor</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+side+plank+form+tutorial" rel="noopener" target="_blank" title="YouTube: Side Plank form tutorial">▶</a>
+</div>
+<div class="ex-timing">25–35 sec each side · Switch sides each round</div>
+<div class="ex-desc">The lateral stability plane — the one core direction not covered by the standard plank or dead bug. Trains the quadratus lumborum and obliques to resist lateral spinal collapse, and places meaningful demand on the glute medius of the bottom leg — a second stimulus for the same muscle targeted by the lateral walk. HR at floor; controlled breathing is the focus.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Lie on your side, prop yourself up on your forearm — elbow directly under your shoulder</li>
+<li>Stack your feet or stagger them (top foot in front) for a wider base if needed</li>
+<li>Lift your hips off the floor until your body forms a straight diagonal line from head to heels</li>
+<li>Drive your bottom hip upward slightly — actively push rather than just hanging in position</li>
+<li>Keep your top arm along your side or reach it toward the ceiling for added challenge</li>
+<li>If the full version is too difficult, bend your knees — same alignment rules apply, just a shorter lever</li>
+</ul>
+</div>
+</div>
+<!-- Ex 6 -->
+<div class="exercise">
+<div class="ex-header">
+<span class="ex-num">06</span>
+<span class="ex-name">Single-Leg Calf Raise</span>
+<span class="ex-hr low">HR Floor</span>
+<span class="ex-equip">Bodyweight (use wall for balance)</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+single+leg+calf+raise+form" rel="noopener" target="_blank" title="YouTube: Single-Leg Calf Raise form tutorial">▶</a>
+</div>
+<div class="ex-timing">12 reps each leg · Full range — all the way up, all the way down</div>
+<div class="ex-desc">Circuit closer — standing, controlled, low HR. Moved to Lower 2 where it fits anatomically alongside the other lower body isolation work. Single-leg because it's roughly double the load of two-legged and harder to cheat. Full range of motion is everything — the lowering phase and the stretch at the bottom is where the strength and mobility gains are concentrated.</div>
+<div class="form-cues">
+<div class="form-cues-label">Form Cues</div>
+<ul class="cue-list">
+<li>Stand on one foot with a slight touch of a wall or doorframe for balance only — not support</li>
+<li>Rise all the way up onto the ball of your foot — as high as possible</li>
+<li>Lower all the way down until your heel is at or slightly below floor level — edge of a step if available</li>
+<li>The lowering phase is critical — most people skip it, but the stretch at the bottom is where strength gains occur</li>
+<li>2 counts up, 1-second hold at top, 3 counts down</li>
+<li>Complete all reps on one leg before switching</li>
+</ul>
+</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">↔ Flexibility: Lateral Hip Opener</div>
+<div class="flex-timing">30 sec each side · Between rounds</div>
+<div class="flex-desc">Stand with feet wide, shift your weight to one side and bend that knee into a lateral lunge, keeping the other leg straight. Feel the stretch in the inner thigh of the straight leg. Direct adductor stretch to complement the adductor work in this session. Alternate sides each round.</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label">Cool-Down — 2–3 min</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label">Cool-Down — 2–3 min</div>
+<div class="flex-exercise">
+<div class="flex-name">Standing Single-Leg Calf Stretch</div>
+<div class="flex-timing">45 sec each leg</div>
+<div class="flex-desc">Step one foot back, press the heel firmly into the floor, keep the back leg straight. Lean gently forward until you feel the stretch in the back of your lower leg. Maintains ankle mobility and calf flexibility after the calf raise work. Hold without bouncing.</div>
+</div>
+<div class="flex-exercise">
+<div class="flex-name">90/90 Hip Stretch</div>
+<div class="flex-timing">60 sec each side</div>
+<div class="flex-desc">Sit on the floor with both legs bent at 90° — one in front, one to the side. Sit tall, keep both sitting bones on the floor. Lean slightly forward over the front leg for deeper stretch. Excellent for hip external rotation and adductor release after the hip-dominant work of this session.</div>
+</div>
+</div>
+</div>
+</div>
+<!-- TIMER-DATA:mobility — machine-readable session data for timer app -->
+<script id="timer-data-mobility" type="application/json">
+{
+  "session_id": "mobility",
+  "session_name": "Mobility & Active Recovery",
+  "session_type": "mobility",
+  "rounds": 1,
+  "rest_between_exercises_sec": 0,
+  "rest_between_rounds_sec": 0,
+  "warmup": [],
+  "exercises": [
+    {"order":1,"name":"World’s Greatest Stretch","equipment":"Bodyweight","reps":"5 each side","form_cues":["Step into a deep lunge, front foot flat, back knee hovering","Place same-side hand as front foot on the floor inside your front foot","Rotate your top arm up toward the ceiling, following it with your eyes","Hold 2 seconds at the top of the rotation, then return hand to floor","Shift hips back slightly to feel the hamstring stretch, then return to lunge","That is one rep — step through and repeat on the other side"],"youtube_url":"https://www.youtube.com/results?search_query=worlds+greatest+stretch+form+tutorial+mobility"},
+    {"order":2,"name":"Inchworm","equipment":"Bodyweight","reps":"6 slow reps","form_cues":["Stand with feet hip-width, hinge at hips and place hands on floor","Walk your hands forward until you are in a full plank — hold 2 seconds","Keep your core braced in the plank — no sagging hips","Walk your hands back toward your feet, keeping legs as straight as comfortable","Stand up and repeat — slow and deliberate, not a race"],"youtube_url":"https://www.youtube.com/results?search_query=inchworm+exercise+form+tutorial+mobility"},
+    {"order":3,"name":"Figure-4 with Active Press","equipment":"Bodyweight","reps":"5 contract-relax cycles each side","form_cues":["Lie on your back, cross one ankle over the opposite knee in the figure-4 position","Pull both legs gently toward your chest until you feel a stretch in the outer glute","Press the crossed knee away from your chest against your hand for 5 seconds — resist it","After 5 seconds, relax and gently pull legs closer to chest — you should gain range","That is one cycle. Repeat 5 times per side.","Right knee: this version only — never pigeon pose"],"youtube_url":"https://www.youtube.com/results?search_query=figure+four+stretch+PNF+contract+relax+hip+mobility"},
+    {"order":4,"name":"Seated Hip CARs","equipment":"Bodyweight","reps":"5 rotations each direction each leg","form_cues":["Sit on the floor with both legs extended, hands behind you for support","Lift one leg slightly, bend the knee, and slowly draw the largest circle you can with that knee","Forward phase: bring knee toward chest, then rotate outward","Backward phase: take the knee out wide, then rotate inward and back to start","Go as slowly as possible — speed defeats the purpose of CARs","5 circles each direction, each leg. Feel every degree of the range."],"youtube_url":"https://www.youtube.com/results?search_query=hip+controlled+articular+rotations+CARs+tutorial"},
+    {"order":5,"name":"Supported 90/90 Hold","equipment":"Bodyweight","reps":"30 sec each side","form_cues":["Sit on the floor and arrange both legs so each forms a 90-degree angle","Front leg: shin perpendicular to your body; back leg: shin parallel behind you","Place both hands on the floor behind you for support — lean back slightly if needed","Focus on keeping both sitting bones on the floor — do not force the shin angle","Breathe slowly and let gravity do the work — do not push into pain","Right knee: if the back-leg position causes knee discomfort, reduce the angle or skip for now"],"youtube_url":"https://www.youtube.com/results?search_query=90+90+hip+stretch+supported+beginner+tutorial"},
+    {"order":6,"name":"Cat-Cow","equipment":"Bodyweight","reps":"10 slow cycles","form_cues":["Start on hands and knees — wrists under shoulders, knees under hips","Inhale: drop your belly toward the floor, lift your head and tailbone (cow)","Exhale: round your spine toward the ceiling, tuck chin and tailbone (cat)","Move as slowly as possible — this is breathing-driven, not rep-driven","Explore the full range of your spine in both directions","10 complete inhale-exhale cycles"],"youtube_url":"https://www.youtube.com/results?search_query=cat+cow+stretch+spine+mobility+form+tutorial"},
+    {"order":7,"name":"Thread the Needle","equipment":"Bodyweight","reps":"45 sec each side","form_cues":["Start on hands and knees — wrists under shoulders, knees under hips","Slide one arm along the floor under your body, rotating your thoracic spine","Continue until that shoulder touches the ground — your head rests on the floor","Hold for 45 seconds — breathe into the rotation and let gravity deepen it","Do not force the range — passive hold only","Return to start and repeat on the other side"],"youtube_url":"https://www.youtube.com/results?search_query=thread+the+needle+thoracic+rotation+stretch+tutorial"},
+    {"order":8,"name":"TRX-Assisted Deep Squat Hold","equipment":"TRX","reps":"3 x 30 sec","form_cues":["Hold TRX handles at hip height for counterbalance — not support","Feet shoulder-width or slightly wider, toes turned out slightly","Sit into the deepest comfortable squat — let the TRX take some weight if needed","Breathe slowly into your hips — each exhale try to sink slightly deeper","Keep your chest up and heels on the floor throughout","Right knee: reduce depth before reducing time if discomfort arises"],"youtube_url":"https://www.youtube.com/results?search_query=TRX+assisted+deep+squat+hold+ankle+hip+mobility"},
+    {"order":9,"name":"Band Pull-Apart Series","equipment":"Band","reps":"15 reps each of 3 variations","form_cues":["Variation 1 — Overhand: band at shoulder height, palms down, pull apart to T position","Variation 2 — Underhand: band at shoulder height, palms up, pull apart to T position","Variation 3 — Overhead: start with band overhead, pull apart and lower to T position","Squeeze shoulder blades together at end range of each rep — hold 1 second","Keep elbows straight throughout all variations","Move through all 3 variations without rest — 45 total reps"],"youtube_url":"https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+variations+shoulder+health"},
+    {"order":10,"name":"Standing Hip Flexor Stretch","equipment":"Bodyweight or TRX","reps":"60 sec each side","form_cues":["Kneel on one knee — back knee on the floor, front foot flat","Shift your hips forward until you feel a stretch in the front of the rear hip","Keep your torso tall — do not lean forward","Hold TRX handles for support and balance if needed","Actively squeeze the glute of the rear leg — this deepens the stretch neurologically","60 seconds per side — breathe slowly throughout"],"youtube_url":"https://www.youtube.com/results?search_query=kneeling+hip+flexor+stretch+form+tutorial"},
+    {"order":11,"name":"Doorway Chest Stretch","equipment":"Bodyweight","reps":"60 sec each side","form_cues":["Stand in a doorway, place your forearm on the frame at 90 degrees","Step through slightly until you feel a stretch across your chest and front shoulder","Hold without bouncing — this is a passive hold","For a deeper stretch, step through more or raise your forearm slightly higher on the frame","60 seconds per side — this needs real time to make lasting change"],"youtube_url":"https://www.youtube.com/results?search_query=doorway+chest+stretch+pec+minor+form+tutorial"},
+    {"order":12,"name":"Overhead Lat Stretch","equipment":"Bodyweight","reps":"60 sec each side","form_cues":["Grab a doorframe or TRX handle at shoulder height with one hand","Step back and lean away until you feel a stretch through the side of your back","Let your body weight create the stretch — do not force it","Keep the arm straight and allow the lat to lengthen under gravity","60 seconds per side — the lat is a large muscle and needs time"],"youtube_url":"https://www.youtube.com/results?search_query=overhead+lat+stretch+doorframe+form+tutorial"},
+    {"order":13,"name":"Supine Spinal Twist","equipment":"Bodyweight","reps":"60 sec each side","form_cues":["Lie on your back with arms extended wide — T position","Pull one knee across your body and let it fall toward the floor on the opposite side","Let gravity do the work — do not force the knee down","Keep both shoulders on the floor throughout — if one lifts, reduce the knee angle","Look away from the bent knee for a full spinal rotation","60 seconds per side"],"youtube_url":"https://www.youtube.com/results?search_query=supine+spinal+twist+stretch+lower+back+tutorial"},
+    {"order":14,"name":"Calf Ankle Stretch Series","equipment":"Bodyweight","reps":"45 sec each position each leg","form_cues":["Position 1 — Straight leg (gastrocnemius): step one foot back, press heel firmly into floor, keep back leg straight, lean forward gently","Position 2 — Bent knee (soleus): same foot placement but bend the back knee slightly — the stretch moves lower into the ankle","Hold each position 45 seconds before switching","The two-position approach is necessary — the calf has two muscles with different knee-angle dependencies","Press the heel actively into the floor throughout — do not let it float"],"youtube_url":"https://www.youtube.com/results?search_query=calf+stretch+gastrocnemius+soleus+ankle+mobility+tutorial"}
+  ],
+  "between_rounds_stretch": null,
+  "cooldown": []
+}
+</script>
+<div class="day-card mobility-day open" id="mobility">
+<div class="day-card-header" onclick="toggle('mobility')">
+<div class="day-header-left">
+<div class="day-tag">Mobility &amp; Active Recovery</div>
+<div class="day-meta">Session 5 · Single pass · No rounds · ~25–30 min</div>
+<div class="day-focus">Hip mobility progression · Spinal mobility · Shoulder health · Static stretching</div>
+</div>
+<div class="toggle-icon">▾</div>
+</div>
+<div class="day-card-body">
+<div class="anchor-flow">
+<span class="anchor-label">Equipment</span>
+<span class="anchor-node bw">Bodyweight</span>
+<span class="anchor-arrow">·</span>
+<span class="anchor-node trx">TRX</span>
+<span class="anchor-arrow">·</span>
+<span class="anchor-node loops">Band</span>
+</div>
+<div class="hr-curve">
+<span class="hr-label">Intensity</span>
+<span class="hr-node low">Restorative throughout — HR stays low — no cardio stimulus intended</span>
+</div>
+<div class="block">
+<div class="block-label" style="color: var(--mobility-color); opacity: 0.9;">Section 1 — Mobility Flow (~15 min) · Single pass · Moving through range of motion</div>
+<div class="exercise" data-exercise="World's Greatest Stretch" data-youtube-url="https://www.youtube.com/results?search_query=worlds+greatest+stretch+form+tutorial+mobility">
+<div class="ex-header">
+<span class="ex-num">01</span>
+<span class="ex-name">World's Greatest Stretch</span>
+<span class="ex-hr low">Full body</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=worlds+greatest+stretch+form+tutorial+mobility" rel="noopener" target="_blank" title="YouTube: World's Greatest Stretch tutorial">►</a>
+</div>
+<div class="ex-timing">5 each side</div>
+<div class="ex-desc">The single best full-body mobility exercise. Lunge plus thoracic rotation plus hip flexor stretch in one movement. Directly addresses the hip and thoracic demands created by the lunges, RDLs, and rows in the resistance sessions.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Step into a deep lunge, front foot flat, back knee hovering</li>
+<li>Place same-side hand as front foot on the floor inside your front foot</li>
+<li>Rotate your top arm up toward the ceiling, following it with your eyes</li>
+<li>Hold 2 seconds at the top of the rotation, then return hand to floor</li>
+<li>Shift hips back slightly to feel the hamstring stretch, then return to lunge</li>
+<li>That is one rep — step through and repeat on the other side</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Inchworm" data-youtube-url="https://www.youtube.com/results?search_query=inchworm+exercise+form+tutorial+mobility">
+<div class="ex-header">
+<span class="ex-num">02</span>
+<span class="ex-name">Inchworm</span>
+<span class="ex-hr low">Full body</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=inchworm+exercise+form+tutorial+mobility" rel="noopener" target="_blank" title="YouTube: Inchworm tutorial">►</a>
+</div>
+<div class="ex-timing">6 slow reps</div>
+<div class="ex-desc">Hamstring flexibility, shoulder stability, and spinal articulation in one movement. Warms the posterior chain without loading it. The 2-second plank hold makes this active mobility work rather than just a stretch.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Stand with feet hip-width, hinge at hips and place hands on the floor</li>
+<li>Walk your hands forward until you are in a full plank — hold 2 seconds</li>
+<li>Keep your core braced in the plank — no sagging hips</li>
+<li>Walk your hands back toward your feet, keeping legs as straight as comfortable</li>
+<li>Stand up and repeat — slow and deliberate, not a race</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Figure-4 with Active Press" data-youtube-url="https://www.youtube.com/results?search_query=figure+four+stretch+PNF+contract+relax+hip+mobility">
+<div class="ex-header">
+<span class="ex-num">03</span>
+<span class="ex-name">Figure-4 with Active Press</span>
+<span class="ex-hr low">Hip external rotators</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=figure+four+stretch+PNF+contract+relax+hip+mobility" rel="noopener" target="_blank" title="YouTube: Figure-4 with Active Press tutorial">►</a>
+</div>
+<div class="ex-timing">5 contract-relax cycles each side</div>
+<div class="ex-desc">Stage 2 of the hip mobility progression toward 90/90. The contract-relax (PNF) technique produces faster range of motion gains than passive stretching alone — the 5-second active press followed by a passive sink is the mechanism. Right knee: this version only throughout the program.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Lie on your back, cross one ankle over the opposite knee in the figure-4 position</li>
+<li>Pull both legs gently toward your chest until you feel a stretch in the outer glute</li>
+<li>Press the crossed knee away from your chest against your hand for 5 seconds — resist it</li>
+<li>After 5 seconds, relax and gently pull legs closer to chest — you should gain range</li>
+<li>That is one cycle. Repeat 5 times per side.</li>
+<li>Right knee: this version only — never pigeon pose</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Seated Hip CARs" data-youtube-url="https://www.youtube.com/results?search_query=hip+controlled+articular+rotations+CARs+tutorial">
+<div class="ex-header">
+<span class="ex-num">04</span>
+<span class="ex-name">Seated Hip CARs</span>
+<span class="ex-hr low">Hip joint — full range</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=hip+controlled+articular+rotations+CARs+tutorial" rel="noopener" target="_blank" title="YouTube: Seated Hip CARs tutorial">►</a>
+</div>
+<div class="ex-timing">5 rotations each direction each leg</div>
+<div class="ex-desc">Controlled Articular Rotations — builds active control through the hip's full range, not just passive flexibility. This is what the 90/90 position actually requires: range you can control, not just range you can fall into. The bridge between passive stretching and active hip mobility.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Sit on the floor with both legs extended, hands behind you for support</li>
+<li>Lift one leg slightly, bend the knee, and slowly draw the largest circle possible with that knee</li>
+<li>Forward phase: bring knee toward chest, then rotate outward</li>
+<li>Backward phase: take the knee out wide, then rotate inward and back to start</li>
+<li>Go as slowly as possible — speed defeats the purpose of CARs</li>
+<li>5 circles each direction, each leg — feel every degree of the range</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Supported 90/90 Hold" data-youtube-url="https://www.youtube.com/results?search_query=90+90+hip+stretch+supported+beginner+tutorial">
+<div class="ex-header">
+<span class="ex-num">05</span>
+<span class="ex-name">Supported 90/90 Hold</span>
+<span class="ex-hr low">Hip external + internal rotation</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=90+90+hip+stretch+supported+beginner+tutorial" rel="noopener" target="_blank" title="YouTube: Supported 90/90 Hold tutorial">►</a>
+</div>
+<div class="ex-timing">30 sec each side</div>
+<div class="ex-desc">Stage 4 of the hip mobility progression — accessing the 90/90 position with support before attempting to sit upright. Hands stay on the floor behind you. Focus on keeping both sitting bones on the floor, not on the shin angle. Over weeks this hold becomes easier and the hands come off the floor.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Sit on the floor and arrange both legs so each forms a 90-degree angle</li>
+<li>Front leg: shin perpendicular to your body; back leg: shin parallel behind you</li>
+<li>Place both hands on the floor behind you for support — lean back slightly if needed</li>
+<li>Focus on keeping both sitting bones on the floor — do not force the shin angle</li>
+<li>Breathe slowly and let gravity do the work — do not push into pain</li>
+<li>Right knee: if the back-leg position causes knee discomfort, reduce the angle or skip for now</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Cat-Cow" data-youtube-url="https://www.youtube.com/results?search_query=cat+cow+stretch+spine+mobility+form+tutorial">
+<div class="ex-header">
+<span class="ex-num">06</span>
+<span class="ex-name">Cat-Cow</span>
+<span class="ex-hr low">Spine — full range</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=cat+cow+stretch+spine+mobility+form+tutorial" rel="noopener" target="_blank" title="YouTube: Cat-Cow tutorial">►</a>
+</div>
+<div class="ex-timing">10 slow cycles</div>
+<div class="ex-desc">Spinal flexion and extension through full range, breathing-driven. Counteracts the neutral-spine bracing demand of every resistance session — the spine needs to move through its full range regularly to maintain the mobility that keeps bracing effective.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Start on hands and knees — wrists under shoulders, knees under hips</li>
+<li>Inhale: drop your belly toward the floor, lift your head and tailbone (cow)</li>
+<li>Exhale: round your spine toward the ceiling, tuck chin and tailbone (cat)</li>
+<li>Move as slowly as possible — this is breathing-driven, not rep-driven</li>
+<li>Explore the full range of your spine in both directions</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Thread the Needle" data-youtube-url="https://www.youtube.com/results?search_query=thread+the+needle+thoracic+rotation+stretch+tutorial">
+<div class="ex-header">
+<span class="ex-num">07</span>
+<span class="ex-name">Thread the Needle</span>
+<span class="ex-hr low">Thoracic rotation</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=thread+the+needle+thoracic+rotation+stretch+tutorial" rel="noopener" target="_blank" title="YouTube: Thread the Needle tutorial">►</a>
+</div>
+<div class="ex-timing">45 sec each side</div>
+<div class="ex-desc">A full standalone hold rather than the between-rounds version in Upper 2. Thoracic rotation is a significant mobility limiter for overhead pressing and rowing — 30 seconds between rounds is not enough to make meaningful change. 45 seconds with gravity doing the work is.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Start on hands and knees — wrists under shoulders, knees under hips</li>
+<li>Slide one arm along the floor under your body, rotating your thoracic spine</li>
+<li>Continue until that shoulder touches the ground — your head rests on the floor</li>
+<li>Hold for 45 seconds — breathe into the rotation and let gravity deepen it</li>
+<li>Do not force the range — passive hold only</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="TRX-Assisted Deep Squat Hold" data-youtube-url="https://www.youtube.com/results?search_query=TRX+assisted+deep+squat+hold+ankle+hip+mobility">
+<div class="ex-header">
+<span class="ex-num">08</span>
+<span class="ex-name">TRX-Assisted Deep Squat Hold</span>
+<span class="ex-hr low">Ankle + hip</span>
+<span class="ex-equip">TRX</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=TRX+assisted+deep+squat+hold+ankle+hip+mobility" rel="noopener" target="_blank" title="YouTube: TRX-Assisted Deep Squat Hold tutorial">►</a>
+</div>
+<div class="ex-timing">3 x 30 sec</div>
+<div class="ex-desc">Ankle and hip mobility together. The TRX provides counterbalance so you can access depth that ankle or hip tightness would otherwise prevent. Over time the grip on the straps gets lighter as you build the range to hold it unassisted. Right knee: reduce depth before reducing time.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Hold TRX handles at hip height for counterbalance — not support</li>
+<li>Feet shoulder-width or slightly wider, toes turned out slightly</li>
+<li>Sit into the deepest comfortable squat — let the TRX take some weight if needed</li>
+<li>Breathe slowly into your hips — each exhale try to sink slightly deeper</li>
+<li>Keep your chest up and heels on the floor throughout</li>
+<li>Right knee: reduce depth before reducing time if discomfort arises</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Band Pull-Apart Series" data-youtube-url="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+variations+shoulder+health">
+<div class="ex-header">
+<span class="ex-num">09</span>
+<span class="ex-name">Band Pull-Apart Series</span>
+<span class="ex-hr low">Rear delts + rotator cuff</span>
+<span class="ex-equip">Band</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=athlean-x+band+pull+apart+variations+shoulder+health" rel="noopener" target="_blank" title="YouTube: Band Pull-Apart Series tutorial">►</a>
+</div>
+<div class="ex-timing">15 reps each of 3 variations (45 total)</div>
+<div class="ex-desc">Shoulder health maintenance as the final flow movement. The rear delts and external rotators are the program's most important corrective target — given the cardiovascular risk context and the volume of pressing work, keeping these muscles strong and reactive is non-negotiable.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Variation 1 — Overhand: band at shoulder height, palms down, pull apart to T position</li>
+<li>Variation 2 — Underhand: band at shoulder height, palms up, pull apart to T position</li>
+<li>Variation 3 — Overhead: start with band overhead, pull apart and lower to T position</li>
+<li>Squeeze shoulder blades together at end range of each rep — hold 1 second</li>
+<li>Keep elbows straight throughout all variations</li>
+<li>Move through all 3 variations without rest — 45 total reps</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="block">
+<div class="block-label" style="color: var(--mobility-color); opacity: 0.9;">Section 2 — Targeted Static Stretching (~12 min) · 60 sec holds · Let gravity work</div>
+<div class="exercise" data-exercise="Standing Hip Flexor Stretch" data-youtube-url="https://www.youtube.com/results?search_query=kneeling+hip+flexor+stretch+form+tutorial">
+<div class="ex-header">
+<span class="ex-num">10</span>
+<span class="ex-name">Standing Hip Flexor Stretch</span>
+<span class="ex-hr low">Hip flexors</span>
+<span class="ex-equip">Bodyweight or TRX</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=kneeling+hip+flexor+stretch+form+tutorial" rel="noopener" target="_blank" title="YouTube: Standing Hip Flexor Stretch tutorial">►</a>
+</div>
+<div class="ex-timing">60 sec each side</div>
+<div class="ex-desc">Hip flexors are hit hard by the lunge pattern and shortened by desk work. The resistance sessions stretch them dynamically but never hold long enough to make lasting change. A full 60-second hold is the minimum effective dose for actual tissue lengthening. Actively squeezing the rear glute deepens the stretch neurologically.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Kneel on one knee — back knee on the floor, front foot flat</li>
+<li>Shift your hips forward until you feel a stretch in the front of the rear hip</li>
+<li>Keep your torso tall — do not lean forward</li>
+<li>Hold TRX handles for support and balance if needed</li>
+<li>Actively squeeze the glute of the rear leg — this deepens the stretch neurologically</li>
+<li>60 seconds per side — breathe slowly throughout</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Doorway Chest Stretch" data-youtube-url="https://www.youtube.com/results?search_query=doorway+chest+stretch+pec+minor+form+tutorial">
+<div class="ex-header">
+<span class="ex-num">11</span>
+<span class="ex-name">Doorway Chest Stretch</span>
+<span class="ex-hr low">Chest + anterior shoulder</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=doorway+chest+stretch+pec+minor+form+tutorial" rel="noopener" target="_blank" title="YouTube: Doorway Chest Stretch tutorial">►</a>
+</div>
+<div class="ex-timing">60 sec each side</div>
+<div class="ex-desc">The push/pull imbalance from everyday life combined with the program's pressing volume makes this a priority. A 30-second between-rounds version addresses the acute fatigue but does not change tissue length. 60 seconds per side does.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Stand in a doorway, place your forearm on the frame at 90 degrees</li>
+<li>Step through slightly until you feel a stretch across your chest and front shoulder</li>
+<li>Hold without bouncing — passive hold only</li>
+<li>For a deeper stretch, step through more or raise your forearm slightly higher</li>
+<li>60 seconds per side — this is the minimum to make lasting change</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Overhead Lat Stretch" data-youtube-url="https://www.youtube.com/results?search_query=overhead+lat+stretch+doorframe+form+tutorial">
+<div class="ex-header">
+<span class="ex-num">12</span>
+<span class="ex-name">Overhead Lat Stretch</span>
+<span class="ex-hr low">Lats + thoracic</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=overhead+lat+stretch+doorframe+form+tutorial" rel="noopener" target="_blank" title="YouTube: Overhead Lat Stretch tutorial">►</a>
+</div>
+<div class="ex-timing">60 sec each side</div>
+<div class="ex-desc">Directly addresses the tightness created by lat pulldowns and rows — often missed entirely in cool-downs. A tight lat limits overhead pressing range and pulls the shoulder into internal rotation, which is the postural problem the face pulls and band pull-aparts are trying to correct. Stretching it directly closes that loop.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Grab a doorframe or TRX handle at shoulder height with one hand</li>
+<li>Step back and lean away until you feel a stretch through the side of your back</li>
+<li>Let your body weight create the stretch — do not force it</li>
+<li>Keep the arm straight and allow the lat to lengthen under gravity</li>
+<li>60 seconds per side — the lat is a large muscle and needs time</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Supine Spinal Twist" data-youtube-url="https://www.youtube.com/results?search_query=supine+spinal+twist+stretch+lower+back+tutorial">
+<div class="ex-header">
+<span class="ex-num">13</span>
+<span class="ex-name">Supine Spinal Twist</span>
+<span class="ex-hr low">Lumbar spine + thoracic</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=supine+spinal+twist+stretch+lower+back+tutorial" rel="noopener" target="_blank" title="YouTube: Supine Spinal Twist tutorial">►</a>
+</div>
+<div class="ex-timing">60 sec each side</div>
+<div class="ex-desc">Rotational decompression for the lumbar spine. The resistance sessions place significant anti-rotation demand on the spine throughout — the plank, dead bug, and Pallof press all train the spine to resist rotation under load. This releases that accumulated tension through passive rotation in the opposite direction.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Lie on your back with arms extended wide — T position</li>
+<li>Pull one knee across your body and let it fall toward the floor on the opposite side</li>
+<li>Let gravity do the work — do not force the knee down</li>
+<li>Keep both shoulders on the floor — if one lifts, reduce the knee angle</li>
+<li>Look away from the bent knee for a full spinal rotation</li>
+<li>60 seconds per side</li>
+</ul>
+</div>
+</div>
+<div class="exercise" data-exercise="Calf Ankle Stretch Series" data-youtube-url="https://www.youtube.com/results?search_query=calf+stretch+gastrocnemius+soleus+ankle+mobility+tutorial">
+<div class="ex-header">
+<span class="ex-num">14</span>
+<span class="ex-name">Calf Ankle Stretch Series</span>
+<span class="ex-hr low">Gastrocnemius + soleus</span>
+<span class="ex-equip">Bodyweight</span>
+<a class="yt-link" href="https://www.youtube.com/results?search_query=calf+stretch+gastrocnemius+soleus+ankle+mobility+tutorial" rel="noopener" target="_blank" title="YouTube: Calf Ankle Stretch Series tutorial">►</a>
+</div>
+<div class="ex-timing">45 sec each position each leg</div>
+<div class="ex-desc">Two-position stretch because the calf has two muscles with different knee-angle dependencies. The gastrocnemius crosses the knee and requires a straight leg to stretch fully. The soleus does not cross the knee and requires a bent knee. Doing only one position means half the calf is never stretched.</div>
+<div class="form-cues">
+<div class="form-cues-label">How To</div>
+<ul class="cue-list">
+<li>Position 1 — Straight leg (gastrocnemius): step one foot back, press heel into floor, keep back leg straight, lean gently forward</li>
+<li>Position 2 — Bent knee (soleus): same foot placement but bend the back knee slightly — the stretch moves lower into the ankle</li>
+<li>Hold each position 45 seconds before switching</li>
+<li>Press the heel actively into the floor throughout — do not let it float</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- PROGRAM NOTES -->
+<div class="notes-section">
+<div class="section-heading">Program Notes</div>
+<div class="notes-grid">
+<div class="note-card">
+<div class="note-title">Upper/Lower Recovery Logic</div>
+<div class="note-text">
+          Each tissue type gets <strong>48+ hours of recovery</strong> between sessions of the same type. Upper 1 and Upper 2 are never run on consecutive days; same rule for Lower 1 and Lower 2. Upper/Lower or Lower/Upper back-to-back is fine. On a 3-session week the rotation shifts by one — over 4 weeks every session gets equal exposure.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">HR Curve Design</div>
+<div class="note-text">
+          Each session is designed with a deliberate HR arc. Lower 1 has the strongest cardiovascular effect — the kettlebell swing is the program's only high-HR explosive movement. Upper sessions peak at moderate HR. The Pallof Press (Upper 1) and Adductor Squeeze (Lower 2) are intentional <strong>active recovery points</strong> mid-circuit, not fillers.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Scaling — TRX</div>
+<div class="note-text">
+          Move feet <strong>forward (more upright)</strong> to make easier. Move feet <strong>back (more horizontal)</strong> to increase resistance. No equipment changes needed — this is your primary progression tool for the first 4–6 weeks on TRX movements.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Scaling — Bands</div>
+<div class="note-text">
+<strong>Choke up</strong> (grip closer to anchor) for more resistance. <strong>Use more length</strong> for less. Double the band for more resistance on any exercise. Bands increase resistance at end range — expect the hardest point to be at peak contraction.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Heart Rate Targets</div>
+<div class="note-text">
+          Observed range: <strong>floor ~120 BPM, peaks ~150 BPM</strong>. This is above the original target and reflects productive EPOC-generating intensity. Max HR estimate at 50: ~170 BPM. If consistently exceeding 155, extend inter-round rest to 90 sec. Lower 1 will peak highest due to the kettlebell swing.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Session Timing</div>
+<div class="note-text">
+          Sessions are designed to run <strong>~40 minutes</strong> including warm-up and cool-down. Do not compress rest periods to shorten sessions — the 60–90 second inter-round rest is a deliberate HR management tool, not optional recovery. Rushing rest periods defeats the cardiovascular design of the circuits.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Right Knee — Mobility Note</div>
+<div class="note-text">
+          Right knee has some mobility limitation. <strong>Pigeon pose is contraindicated</strong> — substitute Figure-4 stretch (supine, cross ankle over knee, pull toward chest) throughout. Monitor deep knee flexion in lunges; use TRX for balance assistance and reduce depth before reducing load if discomfort arises.
+        </div>
+</div>
+<div class="note-card">
+<div class="note-title">Cardiovascular Risk Context</div>
+<div class="note-text">
+          Risk factors: <strong>cholesterol, family history, weight.</strong> The circuit format and elevated HR are intentional therapeutic choices. Resistance training independently improves lipid profiles, insulin sensitivity, and vascular function. Complement with physician monitoring of lipid panels and blood pressure.
+        </div>
+</div>
+</div>
+<div class="highlight-note">
+<div class="note-title">Athlete Context — v3 Update</div>
+<div class="note-text">
+<strong>Age:</strong> 50 · <strong>Bodyweight:</strong> 220 lb · <strong>Training age:</strong> Returning/building base with prior fitness background.<br/><br/>
+<strong>Primary goals:</strong> Cardiovascular health (risk factor reduction) and functional strength for healthy aging. Efficiency is a core constraint — program delivers both goals in a single session. If cardiovascular effect from resistance training can be maximized, no separate cardio is needed.<br/><br/>
+<strong>Program structure:</strong> Upper/Lower split replacing full-body design. 3 sessions per week cycling sequentially through 4 sessions. 4th weekly day is dedicated mobility/active recovery — does not consume a resistance slot. Sessions run ~40 minutes consistently.<br/><br/>
+<strong>Equipment:</strong> TRX, resistance bands (multiple), curl bar (EZ bar style), 10–12 lb kettlebell. Home training environment. Band anchor points sequenced within sessions for minimal friction — anchor flow and HR curve documented on each session card.<br/><br/>
+<strong>Nutrition:</strong> Daily protein target ~160g average; 130g floor (trigger a shake if tracking shows below this). Peri-workout: egg casserole + cottage cheese + banana pre; Nurri 30g protein post. Rest days ~130–140g without Nurri — adequate for recovery support.<br/><br/>
+<strong>Recovery priorities in order:</strong> (1) Sleep — target 7 hours, 11pm bedtime protocol with brain dump + wind-down + ASMR audio; (2) Program structure — upper/lower split for 48hr tissue recovery; (3) Protein floor maintenance on rest days.<br/><br/>
+<strong>Physical notes:</strong> Right knee mobility limitation — avoid pigeon pose, substitute figure-4 stretch throughout. Monitor deep flexion in lunge pattern.<br/><br/>
+<strong>Future development:</strong> Elevated HR warmup (locomotion-based) to be layered in once sleep and program structure are established. Goal: extend cardiovascular stimulus window by arriving at exercise 1 with HR already trending upward.
+      </div>
+</div>
+</div>
+</div>
+<script>
+function toggle(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('open');
+}
+function toggleAll() {
+  const cards = document.querySelectorAll('.day-card');
+  const anyOpen = Array.from(cards).some(c => c.classList.contains('open'));
+  cards.forEach(c => {
+    if (anyOpen) c.classList.remove('open');
+    else c.classList.add('open');
+  });
+}
+</script>
+</div></body>
+</html>

@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resistance Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0f0f0e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Timer">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<style>
+  :root {
+    --bg: #0f0f0e; --surface: #1a1a18; --surface2: #222220;
+    --border: #2e2e2b; --text: #e8e6e0; --muted: #7a7870; --faint: #333330;
+    --work: #c8f060; --rest: #60c8f0; --stretch: #d060f0;
+    --between: #f0a060; --warmup: #60f0b8; --cooldown: #f0d060;
+    --danger: #f06060;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-weight: 300;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; overflow-x: hidden;
+  }
+
+  /* ── UPLOAD SCREEN ── */
+  #upload-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 20px; z-index: 200; padding: 40px 24px;
+  }
+  .upload-eyebrow {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase;
+  }
+  .upload-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(40px, 10vw, 76px);
+    letter-spacing: 0.04em; line-height: 0.9;
+    color: var(--text); text-align: center;
+  }
+  .upload-title .hl { color: var(--work); }
+  .drop-zone {
+    width: 100%; max-width: 420px;
+    border: 2px dashed var(--border); border-radius: 6px;
+    padding: 40px 24px; text-align: center; cursor: pointer;
+    transition: all 0.2s; position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--work); background: rgba(200,240,96,0.04);
+  }
+  .drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon { font-size: 36px; margin-bottom: 12px; }
+  .drop-label {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  .drop-sub { font-size: 12px; color: var(--faint); }
+
+  .parse-status {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); min-height: 20px; text-align: center;
+  }
+  .parse-status.ok    { color: var(--work); }
+  .parse-status.err   { color: var(--danger); }
+  .parse-status.warn  { color: var(--between); }
+
+  .ai-fallback-btn {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 10px 20px; border-radius: 3px;
+    border: 1px solid var(--between); background: rgba(240,160,96,0.08);
+    color: var(--between); cursor: pointer; transition: all 0.15s;
+    display: none;
+  }
+  .ai-fallback-btn:hover { background: rgba(240,160,96,0.16); }
+  .ai-thinking {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--between); display: none;
+  }
+
+  /* ── DAY SELECT ── */
+  #select-screen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: none; flex-direction: column; align-items: center;
+    justify-content: center; gap: 0; z-index: 100; padding: 40px 24px;
+    overflow-y: auto;
+  }
+  .select-eyebrow {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .select-plan-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(32px, 8vw, 60px);
+    letter-spacing: 0.04em; line-height: 0.9;
+    color: var(--text); text-align: center; margin-bottom: 28px;
+  }
+  .select-plan-name .hl { color: var(--work); }
+  .day-cards { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 440px; }
+  .day-select-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--work);
+    border-radius: 4px; padding: 16px 18px;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 14px; user-select: none;
+  }
+  .day-select-card:hover { background: var(--surface2); border-color: #555; }
+  .card-letter {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px; letter-spacing: 0.04em; line-height: 1;
+    min-width: 32px; text-align: center;
+  }
+  .card-info { flex: 1; min-width: 0; }
+  .card-day {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; margin-bottom: 2px;
+  }
+  .card-focus { font-size: 13px; color: var(--text); }
+  .card-sub { font-size: 11px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-arrow { font-size: 18px; color: var(--faint); }
+  .reparse-btn {
+    margin-top: 16px;
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); background: none;
+    border: 1px solid var(--border); border-radius: 3px;
+    padding: 7px 14px; cursor: pointer; transition: all 0.15s;
+  }
+  .reparse-btn:hover { color: var(--text); border-color: #555; }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    width: 100%; padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg); position: sticky; top: 0; z-index: 10;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; }
+  .back-btn {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase;
+    background: none; border: 1px solid var(--border); border-radius: 3px;
+    padding: 5px 10px; cursor: pointer; transition: all 0.15s;
+  }
+  .back-btn:hover { color: var(--text); border-color: #555; }
+  .topbar-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.08em;
+    color: var(--work);
+  }
+  .round-indicator {
+    font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase;
+  }
+  .mic-status {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    letter-spacing: 0.1em; color: var(--muted);
+    display: flex; align-items: center; gap: 6px; text-transform: uppercase;
+    cursor: pointer; user-select: none;
+  }
+  .mic-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); transition: background 0.2s; }
+  .mic-dot.listening { background: var(--work); box-shadow: 0 0 6px var(--work); }
+  .mic-dot.heard     { background: var(--rest);  box-shadow: 0 0 8px var(--rest); }
+  .mic-dot.earbuds   { background: var(--between); }
+
+  /* ── PHASE BAND ── */
+  .phase-band { width: 100%; height: 4px; background: var(--faint); overflow: hidden; }
+  .phase-band-fill { height: 100%; transition: width 1s linear, background 0.4s; background: var(--work); }
+
+  /* ── STAGE ── */
+  .stage { width: 100%; max-width: 680px; padding: 28px 24px 0; flex: 1; display: flex; flex-direction: column; }
+  .phase-label { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 10px; transition: color 0.3s; }
+  .ex-name { font-family: 'Bebas Neue', sans-serif; font-size: clamp(32px, 8vw, 58px); letter-spacing: 0.04em; line-height: 0.95; color: var(--text); margin-bottom: 6px; cursor: pointer; user-select: none; }
+  .ex-name:active { opacity: 0.7; }
+  .ex-equip { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 16px; }
+  .cues { display: flex; flex-direction: column; gap: 7px; margin-bottom: 22px; min-height: 52px; }
+  .cue { font-size: 13px; color: var(--text); line-height: 1.5; display: flex; gap: 10px; align-items: flex-start; }
+  .cue::before { content: '→'; color: var(--muted); font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+
+  /* ── TIMER RING ── */
+  .timer-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 22px; }
+  .timer-ring-container { position: relative; width: 180px; height: 180px; }
+  .timer-svg { transform: rotate(-90deg); width: 180px; height: 180px; }
+  .ring-bg { fill: none; stroke: var(--faint); stroke-width: 6; }
+  .ring-progress { fill: none; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 502; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear, stroke 0.4s; }
+  .timer-inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+  .timer-digits { font-family: 'Bebas Neue', sans-serif; font-size: 62px; letter-spacing: 0.02em; line-height: 1; transition: color 0.3s; }
+  .timer-digits.rep-mode { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 400; line-height: 1.4; letter-spacing: 0; }
+  .timer-phase-sub { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+
+  /* NEXT UP */
+  .next-up { background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 11px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; min-height: 44px; }
+  .next-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .next-name { font-size: 13px; color: var(--text); font-weight: 500; }
+
+  /* CONTROLS */
+  .controls { display: flex; gap: 10px; margin-bottom: 22px; align-items: center; justify-content: center; }
+  .btn { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; padding: 12px 24px; border-radius: 3px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all 0.15s; user-select: none; }
+  .btn:hover { background: var(--surface2); color: var(--text); border-color: #555; }
+  .btn.primary { background: var(--work); color: #0f0f0e; border-color: var(--work); font-weight: 500; padding: 12px 36px; font-size: 13px; }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .btn.primary.paused { background: var(--rest); border-color: var(--rest); }
+  .btn.skip { padding: 12px 18px; }
+
+  /* PROGRESS DOTS */
+  .progress-strip { display: flex; gap: 6px; align-items: center; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; }
+  .ex-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); transition: all 0.3s; }
+  .ex-dot.done   { background: var(--muted); }
+  .ex-dot.active { background: var(--work); box-shadow: 0 0 8px var(--work); width: 22px; border-radius: 4px; }
+  .dot-sep { width: 14px; height: 1px; background: var(--faint); margin: 0 2px; }
+
+  /* DONE SCREEN */
+  #done-screen { display: none; position: fixed; inset: 0; background: var(--bg); flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 100; padding: 40px; text-align: center; }
+  .done-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase; }
+  .done-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px, 12vw, 88px); letter-spacing: 0.04em; line-height: 0.9; color: var(--work); }
+  .done-sub { font-size: 14px; color: var(--muted); max-width: 340px; line-height: 1.7; }
+  .done-btns { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+
+  /* TAP */
+  .tap-ripple { position: fixed; border-radius: 50%; background: rgba(255,255,255,0.08); width: 120px; height: 120px; margin-left: -60px; margin-top: -60px; pointer-events: none; z-index: 6; animation: ripple-out 0.5s ease-out forwards; }
+  @keyframes ripple-out { from { transform: scale(0.2); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+  .tap-hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); pointer-events: none; z-index: 20; transition: color 0.3s; white-space: nowrap; }
+  .mic-recover-btn { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; background: var(--between); color: #0f0f0e; border: none; border-radius: 3px; padding: 10px 20px; cursor: pointer; z-index: 21; display: none; white-space: nowrap; font-weight: 500; }
+  .saved-plan-banner { width: 100%; max-width: 420px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--work); border-radius: 4px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .saved-plan-label { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+  .saved-plan-name { font-size: 13px; color: var(--text); font-weight: 500; }
+  /* ── Exercise Detail Modal ── */
+  .ex-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);
+    align-items: flex-end; justify-content: center;
+    padding: 0;
+  }
+  .ex-modal-overlay.open { display: flex; }
+  .ex-modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0; width: 100%; max-width: 560px;
+    max-height: 85vh; overflow-y: auto;
+    padding: 24px 24px 40px; display: flex; flex-direction: column; gap: 16px;
+  }
+  .ex-modal-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .ex-modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 32px; letter-spacing: 0.04em; color: var(--text); line-height: 1; }
+  .ex-modal-close { background: none; border: none; color: var(--muted); font-size: 24px; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+  .ex-modal-equip { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .ex-modal-reps { font-size: 14px; color: var(--work); font-weight: 500; }
+  .ex-modal-cues { display: flex; flex-direction: column; gap: 10px; }
+  .ex-modal-cue { font-size: 14px; color: var(--text); line-height: 1.55; display: flex; gap: 12px; align-items: flex-start; }
+  .ex-modal-cue::before { content: '→'; color: var(--muted); font-size: 12px; flex-shrink: 0; margin-top: 2px; }
+  .ex-modal-yt {
+    display: flex; align-items: center; gap: 10px;
+    background: #ff0000; color: #fff; border: none; border-radius: 4px;
+    padding: 12px 18px; font-family: 'DM Mono', monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+    text-decoration: none; width: fit-content; margin-top: 4px;
+  }
+  .ex-modal-yt:hover { background: #cc0000; }
+  .ex-modal-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+</style>
+</head>
+<body>
+
+<!-- ═══ UPLOAD SCREEN ═══ -->
+<div id="upload-screen">
+  <div class="upload-eyebrow">Resistance Timer</div>
+  <div class="upload-title">Load Your<br><span class="hl">Workout Plan</span></div>
+
+  <div class="drop-zone" id="drop-zone">
+    <input type="file" id="file-input" accept=".html,.htm">
+    <div class="drop-icon">📄</div>
+    <div class="drop-label">Drop workout plan here</div>
+    <div class="drop-sub">or tap to browse · HTML files only</div>
+  </div>
+
+  <div class="parse-status" id="parse-status">Waiting for file…</div>
+  <button class="ai-fallback-btn" id="ai-fallback-btn" onclick="runAIParse()">⚡ Try AI Parsing Instead</button>
+  <div class="ai-thinking" id="ai-thinking">⏳ Claude is reading the document…</div>
+  <div class="saved-plan-banner" id="saved-plan-banner" style="display:none;">
+    <div class="saved-plan-info">
+      <div class="saved-plan-label">Last loaded plan</div>
+      <div class="saved-plan-name" id="saved-plan-name">—</div>
+    </div>
+    <button class="btn primary" onclick="loadSavedPlan()">Continue →</button>
+  </div>
+</div>
+
+<!-- ═══ DAY SELECT ═══ -->
+<div id="select-screen">
+  <div class="select-eyebrow" id="select-eyebrow">Workout Plan</div>
+  <div class="select-plan-name" id="select-plan-name">Choose <span class="hl">Your Day</span></div>
+  <div class="day-cards" id="day-cards"></div>
+  <button class="reparse-btn" onclick="goToUpload()">↑ Load Different Plan</button>
+</div>
+
+<!-- ═══ DONE SCREEN ═══ -->
+<div id="done-screen">
+  <div class="done-eyebrow" id="done-eyebrow">Session Complete</div>
+  <div class="done-title">Session<br>Done.</div>
+  <div class="done-sub">Warm-up · 3 rounds · Cool-down. Nice work.</div>
+  <div class="done-btns">
+    <button class="btn" onclick="goToSelect()">← Day Select</button>
+    <button class="btn primary" onclick="restartDay()">Restart</button>
+  </div>
+</div>
+
+<!-- TAP HINT -->
+<div class="tap-hint" id="tap-hint" style="display:none;">Tap anywhere to pause · <span id="tap-state-label">Running</span></div>
+<button class="mic-recover-btn" id="mic-recover-btn" onclick="recoverMic()">🎤 Tap to restart mic</button>
+
+<!-- TOP BAR -->
+<div class="topbar" id="topbar" style="display:none;">
+  <div class="topbar-left">
+    <button class="back-btn" onclick="goToSelect()">← Days</button>
+    <div class="topbar-title" id="topbar-title">—</div>
+  </div>
+  <div class="round-indicator" id="round-indicator">Warm-Up</div>
+  <div class="mic-status" onclick="toggleMicEnabled()" title="Tap to toggle mic on/off">
+    <div class="mic-dot" id="mic-dot"></div>
+    <span id="mic-label">Mic off</span>
+  </div>
+</div>
+
+<!-- PHASE BAND -->
+<div class="phase-band" id="phase-band" style="display:none;">
+  <div class="phase-band-fill" id="phase-fill"></div>
+</div>
+
+<!-- STAGE -->
+<div class="stage" id="stage" style="display:none;">
+  <div class="phase-label" id="phase-label">—</div>
+  <div class="ex-name"  id="ex-name" onclick="openExModal()">—</div>
+  <div class="ex-equip" id="ex-equip"></div>
+  <div class="cues"     id="cues-wrap"></div>
+  <div class="timer-wrap">
+    <div class="timer-ring-container">
+      <svg class="timer-svg" viewBox="0 0 180 180">
+        <circle class="ring-bg"       cx="90" cy="90" r="80"/>
+        <circle class="ring-progress" cx="90" cy="90" r="80" id="ring"/>
+      </svg>
+      <div class="timer-inner">
+        <div class="timer-digits"    id="timer-digits">—</div>
+        <div class="timer-phase-sub" id="timer-phase-sub"></div>
+      </div>
+    </div>
+  </div>
+  <div class="next-up">
+    <div class="next-label">Next</div>
+    <div class="next-name" id="next-name">—</div>
+  </div>
+  <div class="controls">
+    <button class="btn skip"    onclick="skipPrev()">◀ Prev</button>
+    <button class="btn primary" id="main-btn" onclick="togglePause()">Pause</button>
+    <button class="btn skip"    onclick="skipNext()">Skip ▶</button>
+  </div>
+  <div class="progress-strip" id="progress-strip"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════
+const WORK_TIME    = 40;
+const REST_TIME    = 20;
+const BETWEEN_REST = 90;
+const STRETCH_TIME = 30;
+const DELAY_TIME   = 5;
+const ROUNDS       = 3;
+
+// Day colors (cycle through if more than 3)
+const DAY_COLORS = ['var(--work)', 'var(--rest)', 'var(--stretch)', 'var(--between)', 'var(--warmup)'];
+
+// ═══════════════════════════════════════════════════════
+//  PARSED PLAN STATE
+// ═══════════════════════════════════════════════════════
+let PLAN      = null;   // { planName, days: [ { label, dayInfo, warmup, exercises, stretch, cooldown } ] }
+let rawHTML   = '';     // stored for AI fallback
+
+// ── LOCAL STORAGE ──
+const STORAGE_KEY = 'workoutTimerPlan';
+
+function savePlanToStorage(html, name) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ html, name, saved: Date.now() }));
+  } catch(e) {
+    // Storage full or unavailable — fail silently
+  }
+}
+
+function loadSavedPlan() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!stored || !stored.html) return;
+    rawHTML = stored.html;
+    hideSavedBanner();
+    parseHTMLPlan(rawHTML, true);  // local file — generate session audio
+  } catch(e) {
+    setStatus('err', 'Could not load saved plan.');
+  }
+}
+
+function checkForSavedPlan() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (!stored || !stored.html) return;
+    // Re-parse to get JSON data (storage only keeps parsed PLAN, not raw JSON blocks)
+    const date = new Date(stored.saved).toLocaleDateString();
+    document.getElementById('saved-plan-name').textContent = (stored.name || 'Workout Plan') + ' · saved ' + date;
+    document.getElementById('saved-plan-banner').style.display = 'flex';
+    document.getElementById('parse-status').textContent = 'Or load a new plan below';
+  } catch(e) {}
+}
+
+function hideSavedBanner() {
+  document.getElementById('saved-plan-banner').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE UPLOAD & DRAG-DROP
+// ═══════════════════════════════════════════════════════
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.name.match(/\.html?$/i)) {
+    setStatus('err', 'Please upload an HTML file.');
+    return;
+  }
+  setStatus('', 'Reading file…');
+  const reader = new FileReader();
+  reader.onload = e => {
+    rawHTML = e.target.result;
+    parseHTMLPlan(rawHTML, true);  // local file — generate session audio
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════
+//  HTML PARSER
+// ═══════════════════════════════════════════════════════
+function parseHTMLPlan(html, isLocalFile = false) {
+  setStatus('', 'Parsing document…');
+  hideAIFallback();
+
+  try {
+    const parser = new DOMParser();
+    const doc    = parser.parseFromString(html, 'text/html');
+
+    // Plan name: try <h1> or <title>
+    const h1 = doc.querySelector('h1');
+    const planName = h1 ? h1.textContent.trim().replace(/\s+/g, ' ') : (doc.title || 'Workout Plan');
+
+    // Find resistance day cards — must have 3 blocks (warmup, circuit, cooldown)
+    const allCards = doc.querySelectorAll('.day-card');
+    const resDays  = [];
+    allCards.forEach(card => {
+      const body = card.querySelector('.day-card-body');
+      if (!body) return;
+      const blocks = body.querySelectorAll(':scope > .block');
+      // Must have a circuit block (contains .exercise elements)
+      const circuitBlock = [...blocks].find(b => b.querySelector('.exercise'));
+      if (!circuitBlock) return;  // skip rowing/non-resistance days
+
+      const dayTag  = card.querySelector('.day-tag');
+      const dayMeta = card.querySelector('.day-meta');
+      const dayFocus= card.querySelector('.day-focus');
+
+      const label   = dayTag  ? dayTag.textContent.trim()   : 'Day';
+      const dayInfo = dayMeta ? dayMeta.textContent.trim()  : '';
+      const focus   = dayFocus? dayFocus.textContent.trim() : '';
+
+      // Warm-up block
+      const warmupBlock = [...blocks].find(b => {
+        const lbl = b.querySelector('.block-label');
+        return lbl && /warm.?up/i.test(lbl.textContent);
+      });
+      const warmup = warmupBlock ? parseWarmup(warmupBlock) : [];
+
+      // Circuit block exercises
+      const exercises = parseExercises(circuitBlock);
+
+      // Between-round stretch (flex-exercise inside circuit block)
+      const stretchEl = circuitBlock.querySelector('.flex-exercise');
+      const stretch   = stretchEl ? parseFlexItem(stretchEl) : null;
+
+      // Cooldown block
+      const cooldownBlock = [...blocks].find(b => {
+        const lbl = b.querySelector('.block-label');
+        return lbl && /cool.?down/i.test(lbl.textContent);
+      });
+      const cooldown = cooldownBlock ? parseCooldown(cooldownBlock) : [];
+
+      resDays.push({ label, dayInfo, focus, warmup, exercises, stretch, cooldown, sessionId: card.id || null });
+    });
+
+    if (resDays.length === 0) {
+      setStatus('warn', 'No resistance day circuits found in document.');
+      showAIFallback();
+      return;
+    }
+
+    if (exercises_missing(resDays)) {
+      setStatus('warn', `Parsed ${resDays.length} day(s) but some exercises may be missing.`);
+      showAIFallback();
+    } else {
+      setStatus('ok', `✓ Parsed ${resDays.length} resistance day(s) successfully.`);
+    }
+
+    loadJSONPlanData(doc);
+    augmentExercisesWithJSON(resDays);
+    PLAN = { planName, days: resDays };
+    savePlanToStorage(rawHTML, planName);
+    // Generate session audio only when user loaded a local file
+    if (isLocalFile) generateSessionAudio(resDays);
+    setTimeout(showSelectScreen, 600);
+
+  } catch(err) {
+    setStatus('err', 'Parse error: ' + err.message);
+    showAIFallback();
+  }
+}
+
+function exercises_missing(days) {
+  return days.some(d => !d.exercises || d.exercises.length === 0);
+}
+
+// Parse warm-up <ul class="warmup-list"> items
+// Infers timed vs rep-based from text patterns like "15 sec", "20 sec"
+function parseWarmup(block) {
+  const items = [];
+  const lis = block.querySelectorAll('.warmup-list li');
+
+  lis.forEach(li => {
+    const text = li.textContent.trim();
+    // Detect timed: "X sec" or "X seconds" in text
+    const timedMatch = text.match(/(\d+)\s*sec(?:onds?)?(?:\s+each\s+side)?/i);
+    // Detect "each side" for paired timed items
+    const eachSide = /each side/i.test(text);
+
+    // Clean name — strip timing annotation at end in parens or after dash
+    let name = text.replace(/\s*[\(—–-].*$/, '').trim();
+    // Also strip trailing timing like "— 15 sec forward, 15 sec backward"
+    name = name.replace(/\s*-\s*\d+\s*sec.*/i, '').trim();
+
+    if (timedMatch) {
+      const duration = parseInt(timedMatch[1]);
+      if (eachSide) {
+        // Split into left + right
+        const baseName = name.replace(/[\s,]*\d+\s*sec\s*(forward|backward|each\s*side)?/gi, '').trim();
+        items.push({ type:'warmup-timed', name: baseName + ' — Left',  equip: duration + ' sec', duration, cues:[text] });
+        items.push({ type:'warmup-timed', name: baseName + ' — Right', equip: duration + ' sec', duration, cues:[] });
+      } else {
+        // Multiple timings in one line (e.g. "15 sec forward, 15 sec backward")
+        const allTimed = [...text.matchAll(/(\d+)\s*sec(?:onds?)?\s*(forward|backward)?/gi)];
+        if (allTimed.length > 1) {
+          allTimed.forEach((m, idx) => {
+            const dir  = m[2] ? ' — ' + cap(m[2]) : (idx === 0 ? ' — Forward' : ' — Backward');
+            const dur2 = parseInt(m[1]);
+            items.push({ type:'warmup-timed', name: name.split('—')[0].trim() + dir, equip: dur2 + ' sec', duration: dur2, cues:[text] });
+          });
+        } else {
+          items.push({ type:'warmup-timed', name, equip: duration + ' sec', duration, cues:[text] });
+        }
+      }
+    } else {
+      // Rep-based — extract rep hint from text
+      const repHint = extractRepHint(text);
+      const cleanName = name.replace(/\s*—\s*\d+.*/,'').replace(/\s*×\s*\d+/,'').trim();
+      items.push({ type:'warmup-rep', name: cleanName, equip: repHint, reps: repHint, cues:[text] });
+    }
+
+    // Add delay between items (not between arm-circle pair which has no delay)
+    // We'll add delays in buildSequence based on whether consecutive items have the same base name
+  });
+
+  return items;
+}
+
+function extractRepHint(text) {
+  // Match rep patterns: "10 each leg", "10 forward, 10 backward", "× 10", "4 slow reps", "10–12 reps"
+  // Try multi-part first: "10 forward, 10 backward"
+  const multi = text.match(/(\d+\s+\w+,\s*\d+\s+\w+)/i);
+  if (multi) return multi[1].trim();
+  // Range reps: "10–12 reps"
+  const range = text.match(/(\d+[–\-]\d+\s*(?:reps?|steps?|each\s+[\w\s]+)[^,·(]*)/i);
+  if (range) return range[1].trim();
+  // Single rep hint
+  const m = text.match(/(\d+\s*(?:each\s*[\w\s]+|slow\s*\w+|reps?|steps?|×\s*\d+|\w+))/i);
+  return m ? m[1].trim() : '';
+}
+
+function cap(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+// Parse circuit exercises
+function parseExercises(block) {
+  const exEls = block.querySelectorAll('.exercise');
+  return [...exEls].map(el => {
+    const name     = el.querySelector('.ex-name')  ? cleanSpokenName(el.querySelector('.ex-name').textContent.trim())  : '—';
+    const equip    = el.querySelector('.ex-equip') ? el.querySelector('.ex-equip').textContent.trim() : '';
+    const timingEl = el.querySelector('.ex-timing');
+    const timing   = timingEl ? timingEl.textContent.trim() : '';
+    const cueEls   = el.querySelectorAll('.cue-list li');
+    const allCues  = [...cueEls].map(c => c.textContent.trim());
+    const cues     = allCues.length > 2 ? allCues.slice(-2) : allCues;
+
+    // Rep-based: timing starts with a rep count
+    // Handles: "10 reps", "10–12 reps", "8 reps each leg", "12 steps each direction", "15 reps each side"
+    const repMatch = timing.match(/^([\d]+(?:[–\-]\d+)?\s*(?:reps?|steps?|each\s+[\w\s]+)[^·]*)/i);
+    if (repMatch) {
+      return { name, equip, cues, reps: repMatch[1].trim() };
+    }
+
+    // Timed with explicit duration: e.g. "30–40 sec hold" or "30 sec"
+    const secMatch = timing.match(/(\d+)(?:[–-]\d+)?\s*sec/i);
+    if (secMatch) {
+      return { name, equip, cues, duration: parseInt(secMatch[1]) };
+    }
+
+    // Default: timed using global WORK_TIME constant
+    return { name, equip, cues };
+  });
+}
+
+// Augment parsed exercises with JSON data (youtube_url, full form_cues)
+// Called after loadJSONPlanData and after days are built
+function augmentExercisesWithJSON(days) {
+  days.forEach((day, idx) => {
+    const sid = day.sessionId;
+    if (!sid || !JSON_EXERCISE_DATA[sid]) return;
+    (day.exercises || []).forEach(ex => {
+      const jex = JSON_EXERCISE_DATA[sid][ex.name];
+      if (!jex) return;
+      ex.youtube_url  = jex.youtube_url || null;
+      ex.all_cues     = jex.form_cues   || ex.cues;
+      // Keep ex.cues as last-2 for compact display
+      if (jex.form_cues && jex.form_cues.length > 2) {
+        ex.cues = jex.form_cues.slice(-2);
+      }
+    });
+  });
+}
+
+// Strip noise from TTS-spoken names: warning symbols, parenthetical notes, extra flags
+function cleanSpokenName(raw) {
+  return raw
+    .replace(/^↔\s*Flexibility:\s*/i, '')  // flex prefix
+    .replace(/[⚠️⚠︎⚠]\s*[^:·—]*/g, '')    // warning emoji + following text
+    .replace(/\s*\([^)]*\)/g, '')           // parenthetical notes
+    .replace(/\s*·.*$/, '')                 // everything after · separator
+    .trim();
+}
+
+// Parse a .flex-exercise element
+function parseFlexItem(el) {
+  const rawName = el.querySelector('.flex-name')   ? el.querySelector('.flex-name').textContent.trim()   : '—';
+  const timing  = el.querySelector('.flex-timing') ? el.querySelector('.flex-timing').textContent.trim() : '';
+  const desc    = el.querySelector('.flex-desc')   ? el.querySelector('.flex-desc').textContent.trim()   : '';
+  const name = cleanSpokenName(rawName);
+  return { name, equip: timing, cues: desc ? [desc] : [] };
+}
+
+// Parse cool-down block (contains flex-exercise items)
+function parseCooldown(block) {
+  const items = [];
+  const flexEls = block.querySelectorAll('.flex-exercise');
+  flexEls.forEach(el => {
+    const item    = parseFlexItem(el);
+    const timingT = item.equip;
+    // Parse duration from timing string — find first number
+    const m = timingT.match(/(\d+)/);
+    const duration = m ? parseInt(m[1]) : 30;
+    items.push({ type:'cooldown-timed', name:item.name, equip:item.equip, duration, cues:item.cues });
+    items.push({ type:'cooldown-delay' });
+  });
+  // Remove trailing delay
+  if (items.length && items[items.length-1].type === 'cooldown-delay') items.pop();
+  return items;
+}
+
+// ═══════════════════════════════════════════════════════
+//  AI FALLBACK
+// ═══════════════════════════════════════════════════════
+function showAIFallback() {
+  document.getElementById('ai-fallback-btn').style.display = 'inline-block';
+}
+function hideAIFallback() {
+  document.getElementById('ai-fallback-btn').style.display = 'none';
+  document.getElementById('ai-thinking').style.display = 'none';
+}
+
+async function runAIParse() {
+  document.getElementById('ai-fallback-btn').style.display = 'none';
+  document.getElementById('ai-thinking').style.display = 'block';
+  setStatus('', 'Sending to Claude AI…');
+
+  const prompt = `You are parsing a workout plan HTML document to extract structured data for a workout timer app.
+
+Extract ALL resistance training days (skip rowing/cardio days). For each resistance day return JSON.
+
+Return ONLY valid JSON, no markdown, no explanation. Format:
+
+{
+  "planName": "string",
+  "days": [
+    {
+      "label": "Monday — Resistance A",
+      "dayInfo": "Session 1 of 3 · Full Body",
+      "focus": "Horizontal push/pull · Hip hinge",
+      "warmup": [
+        { "type": "warmup-timed", "name": "Arm Circles — Forward", "equip": "15 sec", "duration": 15, "cues": ["Large circles"] },
+        { "type": "warmup-rep",   "name": "Forward Leg Swings",    "equip": "10 each leg", "reps": "10 each leg", "cues": ["Swing from hip"] }
+      ],
+      "exercises": [
+        { "name": "TRX Push-Up", "equip": "TRX", "cues": ["Keep rigid plank", "Exhale on push"] }
+      ],
+      "stretch": { "name": "Doorway Chest Stretch", "equip": "30s each side", "cues": ["Forearm at 90°, rotate away"] },
+      "cooldown": [
+        { "type": "cooldown-timed", "name": "Standing Forward Fold", "equip": "45 sec", "duration": 45, "cues": ["Hinge at hips, hang"] },
+        { "type": "cooldown-delay" },
+        { "type": "cooldown-timed", "name": "TRX Chest Opener", "equip": "30 sec", "duration": 30, "cues": ["Face away, hold handles"] }
+      ]
+    }
+  ]
+}
+
+Rules:
+- warmup: timed items (contain "sec") get type "warmup-timed" with duration in seconds. Rep items get "warmup-rep" with reps string. If one warmup item has two timings (e.g. "15 sec forward, 15 sec backward") split into two warmup-timed items.
+- exercises: extract exactly 2 of the most actionable form cues per exercise.
+- stretch: the between-rounds flexibility exercise. null if none.
+- cooldown: each flex item gets cooldown-timed. Separate them with cooldown-delay objects. Duration = first number in timing string.
+- Do not include rowing days or rest days.
+
+Here is the HTML document:
+
+${rawHTML.substring(0, 60000)}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.content.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    if (!parsed.days || parsed.days.length === 0) throw new Error('No days found');
+
+    PLAN = parsed;
+    savePlanToStorage(rawHTML, PLAN.planName || 'Workout Plan');
+    document.getElementById('ai-thinking').style.display = 'none';
+    setStatus('ok', `✓ AI parsed ${PLAN.days.length} day(s) successfully.`);
+    setTimeout(showSelectScreen, 600);
+
+  } catch(err) {
+    document.getElementById('ai-thinking').style.display = 'none';
+    setStatus('err', 'AI parse failed: ' + err.message);
+    showAIFallback();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATUS HELPERS
+// ═══════════════════════════════════════════════════════
+function setStatus(type, msg) {
+  const el = document.getElementById('parse-status');
+  el.textContent = msg;
+  el.className   = 'parse-status' + (type ? ' ' + type : '');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCREEN NAVIGATION
+// ═══════════════════════════════════════════════════════
+function goToUpload() {
+  clearInterval(interval); interval = null;
+  started = false; paused = true;
+  stopVoice();
+  hide('select-screen'); hide('topbar'); hide('phase-band'); hide('stage'); hide('done-screen'); hide('tap-hint');
+  show('upload-screen');
+}
+
+// ── SESSION AUDIO GENERATION ──
+// Called when user loads a file locally in the timer (not via admin)
+// Generates audio in /audio/session/ and loads that manifest
+async function generateSessionAudio(days) {
+  // Only attempt if server is reachable
+  try {
+    const test = await fetch('/api/audio-manifest');
+    if (!test.ok) return;
+  } catch(e) { return; }
+
+  const phrases = extractPhrasesFromDays(days);
+  if (!phrases.length) return;
+
+  try {
+    // We don't have admin key here — session audio endpoint is keyless
+    // Send in one batch since it's session only
+    const resp = await fetch('/api/generate-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': 'session' },
+      body: JSON.stringify({ phrases, session: true })
+    });
+    if (resp.ok) {
+      await loadAudioManifest('/audio/session/manifest.json');
+    }
+  } catch(e) {}
+}
+
+// Extract all announcement phrases from parsed day data
+// Must match exactly what announceNextEx / announceCurrentEx produce
+function extractPhrasesFromDays(days) {
+  const phrases = new Set();
+  const WORK_TIME    = 40;
+  const STRETCH_TIME = 30;
+
+  days.forEach(day => {
+    // Warm-up
+    (day.warmup || []).forEach(item => {
+      const name   = item.name || '';
+      const detail = item.reps ? item.reps : (item.duration ? item.duration + ' seconds' : '');
+      const msg    = detail ? name + '. ' + detail + '.' : name + '.';
+      const prep   = detail ? 'Prepare for ' + name + '. ' + detail + '.' : 'Prepare for ' + name + '.';
+      phrases.add(msg); phrases.add(prep);
+    });
+
+    // Circuit exercises
+    (day.exercises || []).forEach(ex => {
+      const name   = ex.name || '';
+      const detail = ex.reps ? ex.reps : (ex.duration ? ex.duration + ' seconds' : WORK_TIME + ' seconds');
+      phrases.add(name + '. ' + detail + '.');
+      phrases.add('Prepare for ' + name + '. ' + detail + '.');
+    });
+
+    // Between-round stretch
+    if (day.stretch) {
+      const n = day.stretch.name || '';
+      phrases.add(n + '. ' + STRETCH_TIME + ' seconds.');
+      phrases.add('Prepare for ' + n + '. ' + STRETCH_TIME + ' seconds.');
+    }
+
+    // Cool-down
+    (day.cooldown || []).forEach(item => {
+      if (item.type !== 'cooldown-timed') return;
+      const name   = item.name || '';
+      const detail = item.duration ? item.duration + ' seconds' : '30 seconds';
+      phrases.add(name + '. ' + detail + '.');
+      phrases.add('Prepare for ' + name + '. ' + detail + '.');
+    });
+  });
+
+  return [...phrases].filter(Boolean);
+}
+
+function showSelectScreen() {
+  if (!PLAN) return;
+  hide('upload-screen');
+
+  // Plan name
+  document.getElementById('select-eyebrow').textContent = 'Workout Plan';
+  document.getElementById('select-plan-name').innerHTML = sanitize(PLAN.planName) + '<br><span class="hl">Choose Your Day</span>';
+
+  // Build day cards
+  const container = document.getElementById('day-cards');
+  container.innerHTML = '';
+  PLAN.days.forEach((day, idx) => {
+    const color = DAY_COLORS[idx % DAY_COLORS.length];
+    const letter = day.label.match(/[A-Z](?:\s*[-—]\s*)?(?:Resistance\s*)?([A-Z])?/)?.[0]?.trim()
+                   || String.fromCharCode(65 + idx);
+    // Try to extract a short letter like "A", "B", "C"
+    const letterChar = day.label.match(/Resistance\s*([A-Z])/i)?.[1]
+                    || day.label.match(/Day\s*([A-Z0-9])/i)?.[1]
+                    || String.fromCharCode(65 + idx);
+
+    const exNames = (day.exercises || []).map(e => e.name).join(' · ');
+    const card = document.createElement('div');
+    card.className = 'day-select-card';
+    card.style.borderLeftColor = color;
+    card.innerHTML = `
+      <div class="card-letter" style="color:${color}">${sanitize(letterChar)}</div>
+      <div class="card-info">
+        <div class="card-day">${sanitize(day.label)}</div>
+        <div class="card-focus">${sanitize(day.focus || day.dayInfo || '')}</div>
+        <div class="card-sub">${sanitize(exNames)}</div>
+      </div>
+      <div class="card-arrow">›</div>
+    `;
+    card.addEventListener('click', () => selectDay(idx));
+    container.appendChild(card);
+  });
+
+  show('select-screen');
+  document.getElementById('select-screen').style.display = 'flex';
+}
+
+function goToSelect() {
+  clearInterval(interval); interval = null;
+  started = false; paused = true;
+  stopVoice();
+  hide('done-screen'); hide('topbar'); hide('phase-band'); hide('stage'); hide('tap-hint');
+  show('select-screen');
+  document.getElementById('select-screen').style.display = 'flex';
+  document.getElementById('main-btn').textContent = 'Start';
+  document.getElementById('main-btn').classList.remove('paused');
+}
+
+function show(id) { document.getElementById(id).style.display = ''; }
+function hide(id) { document.getElementById(id).style.display = 'none'; }
+function sanitize(str) { return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ═══════════════════════════════════════════════════════
+//  TIMER STATE
+// ═══════════════════════════════════════════════════════
+let currentDayIdx = 0;
+let SEQUENCE   = [];
+let seqIndex   = 0;
+let timeLeft   = 0;
+let totalTime  = 0;
+let paused     = true;
+let interval   = null;
+let started    = false;
+
+// ═══════════════════════════════════════════════════════
+//  DAY SELECTION → BUILD SEQUENCE
+// ═══════════════════════════════════════════════════════
+function selectDay(idx) {
+  currentDayIdx = idx;
+  const day   = PLAN.days[idx];
+  const color = DAY_COLORS[idx % DAY_COLORS.length];
+
+  SEQUENCE = buildSequence(day);
+
+  document.getElementById('topbar-title').textContent = day.label;
+  document.getElementById('topbar-title').style.color = color;
+  document.getElementById('done-eyebrow').textContent = day.label + ' — Complete';
+
+  hide('select-screen');
+  show('topbar'); document.getElementById('topbar').style.display = '';
+  show('phase-band'); document.getElementById('phase-band').style.display = '';
+  show('stage');   document.getElementById('stage').style.display = '';
+
+  // Prepend a 5s intro delay if the first step is timed,
+  // so "Prepare for X" plays and hold logic fires naturally
+  if (SEQUENCE.length && shouldHoldBeforeStep(0)) {
+    const firstEx = displayExForIndex(0);
+    SEQUENCE.unshift({
+      type: 'warmup-delay',
+      section: 'warmup',
+      _intro: true,
+      _nextName: firstEx ? firstEx.name : '',
+      duration: 3   // shorter than normal 5s delay
+    });
+  }
+
+  // Auto-start
+  seqIndex = 0; paused = false; started = false;
+  startWorkout();
+}
+
+function restartDay() {
+  hide('done-screen');
+  selectDay(currentDayIdx);
+}
+
+// ═══════════════════════════════════════════════════════
+//  BUILD SEQUENCE
+// ═══════════════════════════════════════════════════════
+function buildSequence(day) {
+  const seq = [];
+
+  // Warm-up with smart delay insertion
+  const wu = day.warmup || [];
+  wu.forEach((item, i) => {
+    seq.push({ ...item, section:'warmup' });
+    // Insert delay after this item if:
+    // - not the last item
+    // - next item is NOT a continuation of same base exercise (arm circles pair)
+    if (i < wu.length - 1) {
+      const next = wu[i + 1];
+      const sameBase = item.name && next.name &&
+        item.name.replace(/[—–-]\s*(Forward|Backward|Left|Right)$/i, '').trim() ===
+        next.name.replace(/[—–-]\s*(Forward|Backward|Left|Right)$/i, '').trim();
+      if (!sameBase) {
+        seq.push({ type:'warmup-delay', section:'warmup' });
+      }
+    }
+  });
+
+  // Circuit
+  const exercises = day.exercises || [];
+  const rounds    = ROUNDS;
+  for (let r = 0; r < rounds; r++) {
+    exercises.forEach((ex, i) => {
+      seq.push({ type:'work', section:'circuit', round:r, exIndex:i });
+      const nextExIndex = (i + 1 < exercises.length) ? i + 1 : null;
+      seq.push({ type:'rest', section:'circuit', round:r, exIndex:i, nextExIndex });
+    });
+    if (r < rounds - 1) {
+      seq.push({ type:'stretch', section:'circuit', side:'Left side',  round:r });
+      seq.push({ type:'stretch', section:'circuit', side:'Right side', round:r });
+      seq.push({ type:'between', section:'circuit', round:r });
+    } else {
+      seq.push({ type:'stretch', section:'circuit', side:'Left side',  round:r });
+      seq.push({ type:'stretch', section:'circuit', side:'Right side', round:r });
+    }
+  }
+
+  // Cool-down
+  const cd = day.cooldown || [];
+  cd.forEach(item => seq.push({ ...item, section:'cooldown' }));
+
+  return seq;
+}
+
+// ═══════════════════════════════════════════════════════
+//  STEP HELPERS
+// ═══════════════════════════════════════════════════════
+function stepColor(step) {
+  if (step.section === 'warmup')   return 'var(--warmup)';
+  if (step.section === 'cooldown') return 'var(--cooldown)';
+  return { work:'var(--work)', rest:'var(--rest)', stretch:'var(--stretch)', between:'var(--between)' }[step.type] || 'var(--text)';
+}
+
+function phaseLabel(step) {
+  if (step.type === 'warmup-timed' || step.type === 'warmup-rep') return 'Warm-Up';
+  if (step.type === 'warmup-delay')   return 'Warm-Up · Next Up';
+  if (step.type === 'cooldown-timed') return 'Cool-Down';
+  if (step.type === 'cooldown-delay') return 'Cool-Down · Next Up';
+  if (step.type === 'work')    return 'Work — Round ' + (step.round + 1);
+  if (step.type === 'rest')    return 'Rest';
+  if (step.type === 'stretch') return 'Stretch · ' + step.side;
+  if (step.type === 'between') return 'Rest — Round ' + (step.round + 2) + ' coming up';
+  return '';
+}
+
+function roundIndicatorText(step) {
+  if (step.section === 'warmup')   return 'Warm-Up';
+  if (step.section === 'cooldown') return 'Cool-Down';
+  return 'Round ' + (step.round + 1) + ' of ' + ROUNDS;
+}
+
+function stepDuration(step) {
+  if (!step) return null;
+  if (step.type === 'warmup-rep')     return null;
+  if (step.type === 'warmup-timed')   return step.duration;
+  if (step.type === 'warmup-delay')   return step.duration || DELAY_TIME;
+  if (step.type === 'cooldown-timed') return step.duration;
+  if (step.type === 'cooldown-delay') return DELAY_TIME;
+  if (step.type === 'work') {
+    const day = PLAN && PLAN.days[currentDayIdx];
+    const ex  = day && day.exercises[step.exIndex];
+    if (ex && ex.reps) return null;          // rep-based — no countdown
+    if (ex && ex.duration) return ex.duration; // explicit timed duration
+    return WORK_TIME;                          // default timed
+  }
+  if (step.type === 'rest')    return REST_TIME;
+  if (step.type === 'stretch') return STRETCH_TIME;
+  if (step.type === 'between') {
+    // Use per-session rest duration from JSON if available
+    const day = PLAN && PLAN.days[currentDayIdx];
+    const sid = day && day.sessionId;
+    const jsonRest = sid && JSON_EXERCISE_DATA[sid] && JSON_EXERCISE_DATA[sid]._rest_between_rounds;
+    return jsonRest || BETWEEN_REST;
+  }
+  return null;
+}
+
+function displayExFor(idx) {
+  const step = SEQUENCE[idx];
+  const day  = PLAN.days[currentDayIdx];
+
+  if (step.type === 'warmup-timed' || step.type === 'warmup-rep') return step;
+  if (step.type === 'warmup-delay') {
+    for (let i = idx + 1; i < SEQUENCE.length; i++) {
+      const s = SEQUENCE[i];
+      if (s.type === 'warmup-timed' || s.type === 'warmup-rep') return s;
+      if (s.section !== 'warmup') break;
+    }
+    return null;
+  }
+  if (step.type === 'work')    return day.exercises[step.exIndex];
+  if (step.type === 'stretch') return day.stretch || { name:'Stretch', equip:'30s each side', cues:[] };
+  if (step.type === 'rest')    return step.nextExIndex !== null ? day.exercises[step.nextExIndex] : (day.stretch || null);
+  if (step.type === 'between') return day.exercises[0];
+  if (step.type === 'cooldown-timed') return step;
+  if (step.type === 'cooldown-delay') {
+    for (let i = idx + 1; i < SEQUENCE.length; i++) {
+      if (SEQUENCE[i].type === 'cooldown-timed') return SEQUENCE[i];
+    }
+    return null;
+  }
+  return null;
+}
+
+function nextStepLabel(idx) {
+  if (idx + 1 >= SEQUENCE.length) return 'Done — great work!';
+  const n   = SEQUENCE[idx + 1];
+  const day = PLAN.days[currentDayIdx];
+
+  function afterDelay(fromIdx, kind) {
+    for (let i = fromIdx + 1; i < SEQUENCE.length; i++) {
+      if (SEQUENCE[i].type === kind + '-timed' || SEQUENCE[i].type === kind + '-rep') return SEQUENCE[i].name;
+    }
+    return '—';
+  }
+
+  if (n.type === 'warmup-timed')   return 'Warm-Up · ' + n.name + ' (' + n.duration + 's)';
+  if (n.type === 'warmup-rep')     return 'Warm-Up · ' + n.name + (n.reps ? ' · ' + n.reps : '');
+  if (n.type === 'warmup-delay')   return '5s — then ' + afterDelay(idx + 1, 'warmup');
+  if (n.type === 'work')           return day.exercises[n.exIndex].name + ' · Round ' + (n.round + 1);
+  if (n.type === 'rest')           return 'Rest · ' + REST_TIME + 's';
+  if (n.type === 'stretch')        return (day.stretch ? day.stretch.name : 'Stretch') + ' — ' + n.side;
+  if (n.type === 'between')        return BETWEEN_REST + 's Rest · Round ' + (n.round + 2) + ' after';
+  if (n.type === 'cooldown-timed') return 'Cool-Down · ' + n.name;
+  if (n.type === 'cooldown-delay') return '5s — then ' + afterDelay(idx + 1, 'cooldown');
+  return '—';
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════════════
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function getAudioCtx() { if (!audioCtx) audioCtx = new AudioCtx(); return audioCtx; }
+function beep(freq, dur, type='sine', vol=0.4) {
+  try {
+    const ctx = getAudioCtx(), osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination); osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+function playWorkStart()     { beep(880,0.12); setTimeout(()=>beep(880,0.12),140); }
+function playRestStart()     { beep(440,0.25); }
+function playStretchStart()  { beep(660,0.15); setTimeout(()=>beep(880,0.2),180); }
+function playBetweenRound()  { beep(330,0.4); }
+function playWarmupStart()   { beep(660,0.12); }
+function playCooldownStart() { beep(550,0.2); }
+function playDelayStart()    { beep(440,0.12); }
+function playCountdown()     { beep(600,0.08,'square',0.2); }
+function playDone()          { beep(523,0.15); setTimeout(()=>beep(659,0.15),160); setTimeout(()=>beep(784,0.15),320); setTimeout(()=>beep(1047,0.3),480); }
+function playAck()           { beep(880,0.07); setTimeout(()=>beep(1100,0.1),90); }
+
+// ── TEXT TO SPEECH via pre-generated MP3 ──
+let audioManifest = null;  // phrase -> URL map loaded from server
+
+async function loadAudioManifest(manifestUrl) {
+  try {
+    const resp = await fetch(manifestUrl);
+    if (resp.ok) audioManifest = await resp.json();
+  } catch(e) {}
+}
+
+function speak(text) {
+  if (!text) return;
+  // Try pre-generated MP3 first
+  if (audioManifest && audioManifest[text]) {
+    const audio = new Audio(audioManifest[text]);
+    audio.play().catch(() => speakFallback(text));
+    return;
+  }
+  // Fallback to browser TTS if no MP3 available
+  speakFallback(text);
+}
+
+function speakFallback(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 1.0; utt.pitch = 1.0; utt.volume = 1.0;
+  window.speechSynthesis.speak(utt);
+}
+
+// Build "Prepare for X. Y reps / Y seconds" announcement for rest/delay steps
+function announceNextEx(idx) {
+  const ex   = displayExFor(idx);
+  if (!ex || !ex.name) return;
+  const step = SEQUENCE[idx];
+  let detail = '';
+
+  if (ex.reps) {
+    detail = ex.reps;
+  } else if (ex.duration) {
+    detail = ex.duration + ' seconds';
+  } else if (step.type === 'work' || (step.type === 'rest' && step.nextExIndex !== null)) {
+    detail = WORK_TIME + ' seconds';
+  } else if (step.type === 'stretch' || (step.type === 'rest' && step.nextExIndex === null)) {
+    detail = STRETCH_TIME + ' seconds each side';
+  } else if (step.type === 'between') {
+    detail = BETWEEN_REST + ' second rest';
+  } else if (step.type === 'warmup-delay' || step.type === 'cooldown-delay') {
+    detail = '';
+  }
+
+  const msg = detail
+    ? 'Prepare for ' + ex.name + '. ' + detail + '.'
+    : 'Prepare for ' + ex.name + '.';
+  speak(msg);
+}
+
+// Announce the current exercise at the start of a work/stretch/warmup step
+function announceCurrentEx(idx) {
+  const step = SEQUENCE[idx];
+  if (!step) return;
+
+  let name = null, detail = '';
+
+  if (step.type === 'work') {
+    const day = PLAN && PLAN.days[currentDayIdx];
+    const ex  = day && day.exercises[step.exIndex];
+    if (!ex || !ex.name) return;
+    name   = ex.name;
+    detail = ex.reps ? ex.reps : (ex.duration ? ex.duration + ' seconds' : WORK_TIME + ' seconds');
+  } else if (step.type === 'stretch') {
+    const day = PLAN && PLAN.days[currentDayIdx];
+    const st  = day && day.stretch;
+    name   = st ? st.name : 'Stretch';
+    detail = STRETCH_TIME + ' seconds';
+  } else if (step.type === 'warmup-timed') {
+    name   = step.name;
+    detail = step.duration ? step.duration + ' seconds' : '';
+  } else if (step.type === 'warmup-rep') {
+    name   = step.name;
+    detail = step.reps || '';
+  } else {
+    return;
+  }
+
+  if (!name) return;
+  const msg = detail ? name + '. ' + detail + '.' : name + '.';
+  speak(msg);
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function render() {
+  if (!SEQUENCE.length || seqIndex >= SEQUENCE.length) { showDone(); return; }
+  const step  = SEQUENCE[seqIndex];
+  const color = stepColor(step);
+  const dur   = stepDuration(step);
+  const isRep = (dur === null);
+  const ex    = displayExFor(seqIndex);
+
+  document.getElementById('phase-label').textContent = phaseLabel(step);
+  document.getElementById('phase-label').style.color  = color;
+  document.getElementById('round-indicator').textContent = roundIndicatorText(step);
+  document.getElementById('ex-name').textContent  = ex ? (ex.name || '—') : '—';
+  document.getElementById('ex-equip').textContent = ex ? (ex.reps || ex.equip || '') : '';
+
+  const wrap = document.getElementById('cues-wrap');
+  wrap.innerHTML = '';
+  // Use JSON form_cues for circuit exercises (last 2 for compact display)
+  let displayCues = ex ? (ex.cues || []) : [];
+  if (step.type === 'work') {
+    const jsonEx = getJSONExercise(currentDayIdx, ex ? ex.name : '');
+    if (jsonEx && jsonEx.form_cues && jsonEx.form_cues.length) {
+      displayCues = jsonEx.form_cues.slice(-2);
+    }
+  }
+  displayCues.forEach(c => {
+    const d = document.createElement('div'); d.className = 'cue'; d.textContent = c; wrap.appendChild(d);
+  });
+
+  const ring   = document.getElementById('ring');
+  const digits = document.getElementById('timer-digits');
+  const sub    = document.getElementById('timer-phase-sub');
+  ring.style.stroke = color;
+
+  if (isRep) {
+    digits.className   = 'timer-digits rep-mode';
+    digits.style.color = color;
+    digits.textContent = step.reps || '';
+    sub.textContent    = 'Press Skip ▶ when done';
+    ring.style.strokeDashoffset = '0';
+  } else {
+    digits.className   = 'timer-digits';
+    digits.style.color = color;
+    digits.textContent = timeLeft;
+    sub.textContent    = phaseLabel(step);
+    ring.style.strokeDashoffset = 502 * (1 - (totalTime > 0 ? timeLeft / totalTime : 1));
+  }
+
+  const fill = document.getElementById('phase-fill');
+  fill.style.background = color;
+  fill.style.width = isRep ? '100%' : ((totalTime > 0 ? timeLeft / totalTime : 1) * 100) + '%';
+
+  // Hide pause button for rep-based work — pausing is meaningless with no countdown
+  const btn = document.getElementById('main-btn');
+  if (isRep) {
+    btn.style.visibility = 'hidden';
+  } else {
+    btn.style.visibility = 'visible';
+  }
+
+  document.getElementById('next-name').textContent = nextStepLabel(seqIndex);
+  renderDots();
+}
+
+function renderDots() {
+  const strip = document.getElementById('progress-strip');
+  strip.innerHTML = '';
+  if (!PLAN) return;
+  const day = PLAN.days[currentDayIdx];
+  if (!day) return;
+  let lastRound = -1;
+  SEQUENCE.forEach((s, i) => {
+    if (s.type !== 'work') return;
+    if (s.round !== lastRound && lastRound !== -1) {
+      const sep = document.createElement('div'); sep.className = 'dot-sep'; strip.appendChild(sep);
+    }
+    lastRound = s.round;
+    const el  = document.createElement('div'); el.className = 'ex-dot';
+    const cur = seqIndex < SEQUENCE.length ? SEQUENCE[seqIndex] : null;
+    const isActive = cur && cur.section === 'circuit' && cur.round === s.round && (
+      (cur.type === 'work' && cur.exIndex === s.exIndex) ||
+      (cur.type === 'rest' && cur.nextExIndex === s.exIndex)
+    );
+    if (isActive) el.classList.add('active');
+    else if (i < seqIndex && !isActive) el.classList.add('done');
+    strip.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  TIMER ENGINE
+// ═══════════════════════════════════════════════════════
+function loadStep(index) {
+  if (index >= SEQUENCE.length) { showDone(); return; }
+  seqIndex  = index;
+  const step = SEQUENCE[seqIndex];
+  const dur  = stepDuration(step);
+  totalTime  = dur || 0;
+  timeLeft   = totalTime;
+  render();
+  if      (step.type === 'work')    { playWorkStart(); announceCurrentEx(seqIndex); }
+  else if (step.type === 'rest')    { playRestStart();    announceNextEx(seqIndex); }
+  else if (step.type === 'stretch') { playStretchStart(); announceCurrentEx(seqIndex); }
+  else if (step.type === 'between') { playBetweenRound(); announceNextEx(seqIndex); }
+  else if (step.type === 'warmup-timed' || step.type === 'warmup-rep') { playWarmupStart(); announceCurrentEx(seqIndex); }
+  else if (step.type === 'warmup-delay'  || step.type === 'cooldown-delay') { playDelayStart(); announceNextEx(seqIndex); }
+  else if (step.type === 'cooldown-timed') playCooldownStart();
+}
+
+function maybeStartInterval() {
+  if (interval) { clearInterval(interval); interval = null; }
+  if (!paused && seqIndex < SEQUENCE.length && stepDuration(SEQUENCE[seqIndex]) !== null) {
+    interval = setInterval(tick, 1000);
+  }
+}
+
+// Alias for displayExFor used before seqIndex is set
+function displayExForIndex(idx) { return displayExFor(idx); }
+
+// Returns true if we should hold and wait for user Go/Next before starting this step.
+// Applies to any timed step (work, stretch, between-round rest) — not rep-based work.
+function shouldHoldBeforeStep(idx) {
+  if (idx >= SEQUENCE.length) return false;
+  const step = SEQUENCE[idx];
+  if (step.type === 'work')    return stepDuration(step) !== null; // timed work only
+  if (step.type === 'stretch') return true;   // always hold before stretch
+  return false;
+}
+
+function tick() {
+  if (paused) return;
+  if (stepDuration(SEQUENCE[seqIndex]) === null) return;
+  if (timeLeft <= 3 && timeLeft > 0) playCountdown();
+  timeLeft--;
+  render();
+  if (timeLeft <= 0) {
+    clearInterval(interval); interval = null;
+    const nextIdx = seqIndex + 1;
+    setTimeout(() => {
+      if (nextIdx >= SEQUENCE.length) { showDone(); return; }
+      loadStep(nextIdx);
+      // Hold and wait for user Go/Next before any timed work or stretch step
+      if (shouldHoldBeforeStep(nextIdx)) {
+        paused = true;
+        const btn = document.getElementById('main-btn');
+        btn.textContent = 'Go'; btn.classList.add('paused');
+        updateTapHint();
+      } else {
+        maybeStartInterval();
+      }
+    }, 600);
+  }
+}
+
+function togglePause() {
+  if (!started) { startWorkout(); return; }
+  paused = !paused;
+  const btn = document.getElementById('main-btn');
+  if (paused) {
+    btn.textContent = 'Resume'; btn.classList.add('paused');
+    clearInterval(interval); interval = null;
+  } else {
+    btn.textContent = 'Pause'; btn.classList.remove('paused');
+    maybeStartInterval();
+  }
+  updateTapHint();
+}
+
+// Called by voice "go"/"start" — same as togglePause but always resumes
+function voiceGo() {
+  if (!started) { startWorkout(); return; }
+  if (paused) togglePause();
+}
+
+function skipNext() {
+  if (!started) return;
+  clearInterval(interval); interval = null;
+  loadStep(seqIndex + 1);
+  if (!paused) maybeStartInterval();
+}
+
+function skipPrev() {
+  if (!started) return;
+  clearInterval(interval); interval = null;
+  loadStep(Math.max(0, seqIndex - 1));
+  if (!paused) maybeStartInterval();
+}
+
+function startWorkout() {
+  started = true;
+  if (paused) paused = false;  // may already be false if called from selectDay
+  loadStep(0); maybeStartInterval();
+  requestWakeLock();
+  document.body.addEventListener('touchstart', handleTap, { passive:false });
+  document.body.addEventListener('click', handleTap);
+  document.getElementById('tap-hint').style.display = 'block';
+  updateTapHint();
+  document.getElementById('main-btn').textContent = 'Pause';
+  // Set mic UI last so it isn't overwritten by loadStep/render
+  if (micEnabled) startVoice(); else setMicUI('earbuds');
+}
+
+function showDone() {
+  clearInterval(interval); interval = null;
+  playDone();
+  releaseWakeLock();
+  document.getElementById('mic-recover-btn').style.display = 'none';
+  document.getElementById('done-screen').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════════════════════
+//  TAP TO PAUSE
+// ═══════════════════════════════════════════════════════
+function handleTap(e) {
+  const t = e.target;
+  if (t.classList.contains('btn') || (t.closest && t.closest('.btn'))) return;
+  if (t.closest && (t.closest('#upload-screen') || t.closest('#select-screen') || t.closest('#done-screen'))) return;
+  if (!started) return;
+  if (e.type === 'touchstart') e.preventDefault();
+  togglePause();
+  const ripple = document.createElement('div'); ripple.className = 'tap-ripple';
+  const x = e.touches ? e.touches[0].clientX : e.clientX;
+  const y = e.touches ? e.touches[0].clientY : e.clientY;
+  ripple.style.left = x + 'px'; ripple.style.top = y + 'px';
+  document.body.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 500);
+}
+
+function updateTapHint() {
+  const hint = document.getElementById('tap-hint');
+  const lbl  = document.getElementById('tap-state-label');
+  if (!hint) return;
+  if (paused) {
+    hint.style.color = 'var(--rest)'; lbl.textContent = 'Paused';
+    hint.childNodes[0].textContent = 'Tap anywhere to resume · ';
+  } else {
+    hint.style.color = 'var(--faint)'; lbl.textContent = 'Running';
+    hint.childNodes[0].textContent = 'Tap anywhere to pause · ';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  VOICE
+// ═══════════════════════════════════════════════════════
+let recognition = null, voiceActive = false, micEnabled = false;
+let voiceRestartTimer = null;
+let wakeLock = null;
+
+// ── WAKE LOCK — keeps screen on during workout ──
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch(e) {}
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) { try { await wakeLock.release(); } catch(e) {} wakeLock = null; }
+}
+
+// Re-acquire wake lock when page becomes visible (screen unlock re-triggers this)
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && started) {
+    await requestWakeLock();
+    // Give browser a moment to settle after screen wake, then recover mic
+    if (voiceActive) scheduleVoiceRestart(800);
+  }
+});
+
+// ── MIC UI ──
+function toggleMicEnabled() {
+  if (!started) return;  // only toggle during workout
+  micEnabled = !micEnabled;
+  if (micEnabled) {
+    startVoice();
+  } else {
+    stopVoice();
+    setMicUI('earbuds');
+  }
+}
+
+function setMicUI(state) {
+  const dot   = document.getElementById('mic-dot');
+  const label = document.getElementById('mic-label');
+  const recoverBtn = document.getElementById('mic-recover-btn');
+  if (state === 'listening') {
+    dot.className = 'mic-dot listening'; label.textContent = 'Listening';
+    recoverBtn.style.display = 'none';
+  } else if (state === 'heard') {
+    dot.className = 'mic-dot heard';
+    recoverBtn.style.display = 'none';
+  } else if (state === 'recovering') {
+    dot.className = 'mic-dot'; label.textContent = 'Mic recovering…';
+    recoverBtn.style.display = 'none';
+  } else if (state === 'needs-tap') {
+    dot.className = 'mic-dot'; label.textContent = 'Mic off';
+    if (started) recoverBtn.style.display = 'block';
+  } else if (state === 'earbuds') {
+    dot.className = 'mic-dot earbuds'; label.textContent = '🎧 Earbuds · tap mic to enable voice';
+    recoverBtn.style.display = 'none';
+  } else { // 'off'
+    dot.className = 'mic-dot'; label.textContent = 'Mic off';
+    recoverBtn.style.display = 'none';
+  }
+}
+
+// ── MEDIA SESSION — earbud double/triple tap ──
+function setupMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+  // Double tap earbud → next track → Skip / Go
+  navigator.mediaSession.setActionHandler('nexttrack', () => {
+    if (!started) return;
+    playAck();
+    if (paused) togglePause(); else skipNext();
+  });
+  // Triple tap earbud → previous track → Pause / Resume
+  navigator.mediaSession.setActionHandler('previoustrack', () => {
+    if (!started) return;
+    playAck();
+    togglePause();
+  });
+  // Register metadata so Android treats this page as a media session owner
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: 'Workout Timer',
+    artist: 'Resistance Training'
+  });
+}
+setupMediaSession();
+
+function startVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setMicUI('off'); return; }
+  voiceActive = true;
+  spawnRecognition();
+}
+
+function spawnRecognition() {
+  if (!voiceActive) return;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  try {
+    if (recognition) { try { recognition.abort(); } catch(e) {} recognition = null; }
+    recognition = new SR();
+    recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'en-US';
+    recognition.onstart = () => { setMicUI('listening'); };
+    recognition.onresult = (e) => {
+      const t = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
+      setMicUI('heard');
+      setTimeout(() => setMicUI('listening'), 800);
+      if (t.includes('go') || t.includes('start'))        { playAck(); if (paused) togglePause(); else skipNext(); }
+      else if (t.includes('pause') || t.includes('stop')) { playAck(); if (!paused) togglePause(); }
+      else if (t.includes('next') || t.includes('skip'))  { playAck(); if (paused) togglePause(); else skipNext(); }
+    };
+    recognition.onerror = (e) => {
+      if (e.error === 'not-allowed') { voiceActive = false; setMicUI('off'); return; }
+      if (e.error === 'aborted') return; // intentional abort, ignore
+      // Any other error — show recover button, browser needs a user gesture
+      setMicUI('needs-tap');
+    };
+    recognition.onend = () => {
+      if (!voiceActive) return;
+      // If page is visible, try auto-restart; if hidden, show recover button for when they return
+      if (document.visibilityState === 'visible') {
+        scheduleVoiceRestart(600);
+      } else {
+        setMicUI('needs-tap');
+      }
+    };
+    recognition.start();
+  } catch(e) {
+    setMicUI('needs-tap');
+  }
+}
+
+function scheduleVoiceRestart(delay) {
+  if (!voiceActive) return;
+  if (voiceRestartTimer) return;
+  setMicUI('recovering');
+  voiceRestartTimer = setTimeout(() => {
+    voiceRestartTimer = null;
+    spawnRecognition();
+  }, delay || 1000);
+}
+
+// Called by the tap-to-restart button — user gesture allows mic re-acquire
+function recoverMic() {
+  if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+  document.getElementById('mic-recover-btn').style.display = 'none';
+  spawnRecognition();
+}
+
+function stopVoice() {
+  voiceActive = false;
+  if (voiceRestartTimer) { clearTimeout(voiceRestartTimer); voiceRestartTimer = null; }
+  if (recognition) { try { recognition.abort(); } catch(e) {} recognition = null; }
+  setMicUI('off');
+  releaseWakeLock();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SERVICE WORKER REGISTRATION
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .catch(err => console.warn('SW registration failed:', err));
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT — fetch plan from server, fall back to localStorage
+// ═══════════════════════════════════════════════════════
+async function fetchPlanFromServer() {
+  try {
+    const resp = await fetch('/api/plan');
+    if (!resp.ok) return false;
+    const html = await resp.text();
+    if (!html || html.length < 100) return false;
+    rawHTML = html;
+    parseHTMLPlan(html, false);  // from server — no session audio
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  JSON PLAN DATA — form cues + youtube URLs
+// ═══════════════════════════════════════════════════════
+// Keyed by session_id -> exercise name -> {form_cues, youtube_url, reps}
+let JSON_EXERCISE_DATA = {};
+
+function loadJSONPlanData(doc) {
+  JSON_EXERCISE_DATA = {};
+  doc.querySelectorAll('script[type="application/json"]').forEach(s => {
+    try {
+      const data = JSON.parse(s.textContent);
+      const sid  = data.session_id;
+      if (!sid) return;
+      JSON_EXERCISE_DATA[sid] = {};
+      (data.exercises || []).forEach(ex => {
+        JSON_EXERCISE_DATA[sid][ex.name] = {
+          form_cues:   ex.form_cues   || [],
+          youtube_url: ex.youtube_url || null,
+          reps:        ex.reps        || null,
+          equipment:   ex.equipment   || ''
+        };
+      });
+      // Also store session-level rest_between_rounds_sec if present
+      if (data.rest_between_rounds_sec) {
+        JSON_EXERCISE_DATA[sid]._rest_between_rounds = data.rest_between_rounds_sec;
+      }
+    } catch(e) {}
+  });
+}
+
+function getJSONExercise(dayIdx, exName) {
+  if (!PLAN || !PLAN.days[dayIdx]) return null;
+  const day = PLAN.days[dayIdx];
+  const sid = day.sessionId;
+  if (!sid || !JSON_EXERCISE_DATA[sid]) return null;
+  return JSON_EXERCISE_DATA[sid][exName] || null;
+}
+
+// ── EXERCISE DETAIL MODAL ──
+function openExModal() {
+  if (!started) return;
+  const step = SEQUENCE[seqIndex];
+  const ex   = displayExFor(seqIndex);
+  if (!ex || !ex.name) return;
+
+  // Get rich data from JSON if available
+  const jsonEx = (step.type === 'work')
+    ? getJSONExercise(currentDayIdx, ex.name)
+    : null;
+
+  const title   = ex.name;
+  const equip   = jsonEx ? jsonEx.equipment : (ex.equip || '');
+  const reps    = jsonEx ? jsonEx.reps      : (ex.reps  || (ex.duration ? ex.duration + ' seconds' : ''));
+  const cues    = jsonEx ? jsonEx.form_cues : (ex.cues  || []);
+  const ytUrl   = jsonEx ? jsonEx.youtube_url : null;
+
+  document.getElementById('ex-modal-title').textContent = title;
+  document.getElementById('ex-modal-equip').textContent = equip;
+  document.getElementById('ex-modal-reps').textContent  = reps;
+
+  const cuesEl = document.getElementById('ex-modal-cues');
+  cuesEl.innerHTML = '';
+  cues.forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'ex-modal-cue';
+    d.textContent = c;
+    cuesEl.appendChild(d);
+  });
+
+  const ytEl = document.getElementById('ex-modal-yt');
+  if (ytUrl) {
+    ytEl.href = ytUrl;
+    ytEl.style.display = 'flex';
+  } else {
+    ytEl.style.display = 'none';
+  }
+
+  document.getElementById('ex-modal-overlay').classList.add('open');
+}
+
+function closeExModal(e) {
+  // Close if clicking overlay background or close button (not modal content)
+  if (e && e.target !== document.getElementById('ex-modal-overlay')) return;
+  document.getElementById('ex-modal-overlay').classList.remove('open');
+}
+
+// Close on back gesture / escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('ex-modal-overlay').classList.remove('open');
+});
+
+async function init() {
+  const serverOk = await fetchPlanFromServer();
+  if (serverOk) {
+    // Load saved audio manifest
+    await loadAudioManifest('/api/audio-manifest');
+  } else {
+    // No server plan — check localStorage as fallback
+    checkForSavedPlan();
+  }
+}
+
+// Called by admin page after generating session audio for a locally-loaded file
+// Stores the manifest URL in sessionStorage for this tab
+function useSessionAudio(manifestUrl) {
+  sessionStorage.setItem('sessionManifestUrl', manifestUrl);
+}
+
+// Check for session manifest (set when user loads a local file on this device)
+async function loadSessionManifestIfAny() {
+  const url = sessionStorage.getItem('sessionManifestUrl');
+  if (url) await loadAudioManifest(url);
+}
+
+init();
+
+// ═══════════════════════════════════════════════════════
+//  KEYBOARD
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (!started) return;
+  if (e.code === 'Space')      { e.preventDefault(); togglePause(); }
+  if (e.code === 'ArrowRight') skipNext();
+  if (e.code === 'ArrowLeft')  skipPrev();
+});
+</script>
+
+<!-- EXERCISE DETAIL MODAL -->
+<div class="ex-modal-overlay" id="ex-modal-overlay" onclick="closeExModal(event)">
+  <div class="ex-modal" id="ex-modal">
+    <div class="ex-modal-header">
+      <div class="ex-modal-title" id="ex-modal-title">—</div>
+      <button class="ex-modal-close" onclick="closeExModal()">✕</button>
+    </div>
+    <div class="ex-modal-equip" id="ex-modal-equip"></div>
+    <div class="ex-modal-reps"  id="ex-modal-reps"></div>
+    <hr class="ex-modal-divider">
+    <div class="ex-modal-cues"  id="ex-modal-cues"></div>
+    <a class="ex-modal-yt" id="ex-modal-yt" target="_blank" rel="noopener" style="display:none;">
+      ▶ Watch on YouTube
+    </a>
+  </div>
+</div>
+
+</body>
+</html>

@@ -16,7 +16,7 @@ Mock all AI calls in tests — no real API calls in test suite.
 
 ## Mobile
 Never use web-only APIs: localStorage, window, document.
-Audio: expo-av only.
+Audio: expo-speech + expo-audio.
 All packages: npx expo install — never npm install.
 Consider both iOS and Android before marking complete.
 

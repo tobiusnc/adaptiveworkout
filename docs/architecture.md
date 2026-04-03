@@ -15,7 +15,8 @@ Platform: React Native / Expo SDK 55
 Language: TypeScript strict mode
 Navigation: Expo Router
 State management: zustand
-Local storage: powersync-sqlcipher
+Local storage: SQLite+SQLCipher
+Audio: expo-speech + expo-audio.
 Testing: Jest / jest-expo / testing-library/react-native
 
 ## AI Layer

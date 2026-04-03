@@ -9,7 +9,6 @@
 #   adaptive-workout-app    — e.g. adaptive-workout-app
 #   JD          — e.g. JD
 #   adaptive-workout       — e.g. adaptive-workout
-#   [BUNDLE_ID]       — e.g. com.jd.adaptiveworkout
 #   tobiusnc   — your expo.dev username
 #   zustand      — e.g. zustand
 #   powersync-sqlcipher   — e.g. powersync-sqlcipher
@@ -118,10 +117,6 @@ Append to docs/blockers.md (create file if it does not exist):
   **Resolution:** [leave blank]
 
 STEP 2
-Send notification:
-  Run: osascript -e 'display notification "$ARGUMENTS" with title "Claude Code — Adaptive Workout App" sound name "Sosumi"'
-
-STEP 3
 STOP COMPLETELY.
 DO NOT ATTEMPT WORKAROUNDS.
 DO NOT MAKE ASSUMPTIONS TO CONTINUE.
@@ -232,18 +227,17 @@ Confirm GROUP 3 complete: list the 2 files created.
 
 GROUP 4: Global scripts (~/.claude/scripts/)
 
+
 ===FILE: ~/.claude/scripts/notify-stop.sh===
 #!/bin/bash
-# notify-stop.sh — blocker notification hook
-# Starts in OBSERVATION MODE — logs events without notifying.
-# After 5 sessions: review ~/.claude/logs/stop-events.log
-# then change MODE to production to enable notifications.
+# notify-stop.sh — session event logger
+# Logs all Claude Code stop events for review.
+# No notifications are sent — logging only.
 
 LOG_DIR="$HOME/.claude/logs"
 mkdir -p "$LOG_DIR"
 
 EVENTS_LOG="$LOG_DIR/stop-events.log"
-MODE_FILE="$LOG_DIR/notify-mode"
 COUNT_FILE="$LOG_DIR/session-count"
 
 PAYLOAD=$(cat)
@@ -258,16 +252,6 @@ echo "[$TIMESTAMP] Session $COUNT" >> "$EVENTS_LOG"
 echo "$PAYLOAD" >> "$EVENTS_LOG"
 echo "---" >> "$EVENTS_LOG"
 
-MODE="observation"
-[ -f "$MODE_FILE" ] && MODE=$(cat "$MODE_FILE")
-
-if [ "$MODE" = "observation" ] && [ "$COUNT" -ge 5 ]; then
-  echo "notify-stop: 5 sessions observed. Review $EVENTS_LOG then set $MODE_FILE to 'production'."
-fi
-
-[ "$MODE" = "observation" ] && exit 0
-
-osascript -e 'display notification "Claude Code stopped" with title "Adaptive Workout App" sound name "Sosumi"' 2>/dev/null || true
 exit 0
 ===END===
 

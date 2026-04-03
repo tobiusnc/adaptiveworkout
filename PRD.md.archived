@@ -1,0 +1,675 @@
+# Product Requirements Document
+# Adaptive AI Workout Application
+
+**Version:** 0.7  
+**Status:** Draft  
+**Last Updated:** 2026-03-06  
+**Prepared For:** Claude Code Agent
+
+---
+
+## Agent Instructions
+
+Before writing any code, read this document in full. Then read `SCHEMA.md`, `DECISIONS.md`, and `STATUS.md` in that order.
+
+**STOP CONDITION — SCHEMA GAPS:** If you encounter any exercise type, session structure, feedback signal, or data relationship that cannot be cleanly expressed by the current schema in `SCHEMA.md`, STOP. Do not infer a solution. Do not extend the schema unilaterally. Describe the gap, explain why the current schema does not cover it, and wait for instruction before proceeding.
+
+**STOP CONDITION — AMBIGUOUS REQUIREMENTS:** If a requirement in this document could be implemented in more than one meaningfully different way and the choice would have downstream consequences on the schema or data model, STOP and surface the ambiguity before writing code.
+
+**DECISIONS:** When you make any implementation decision not explicitly specified here — library choice, file structure, data pattern, API design — record it in `DECISIONS.md` with a one-line rationale before continuing.
+
+**RESEARCH PHASE:** This PRD does not specify a tech stack. A separate tech stack research phase will be conducted before implementation begins. Do not select frameworks or libraries until that research output has been reviewed and approved.
+
+---
+
+## 1. Product Overview
+
+### 1.1 Purpose
+
+An AI-driven workout application that eliminates friction between plan generation and plan execution. The AI generates a structured, personalized workout plan; the runtime executes that plan natively — with timers, voice guidance, and real-time heart rate monitoring — without any manual configuration step between generation and execution. After each session, feedback and biometric data are captured and fed back to the AI to continuously adapt the plan.
+
+### 1.2 Core Problem Being Solved
+
+Existing AI fitness apps have a seam between plan generation and execution. The AI generates a plan in one format; the user manually recreates it in a separate timer or tracking app to execute it. This friction degrades compliance and breaks the feedback loop. This application owns the full loop: generate → execute → capture → adapt.
+
+### 1.3 Design Principles
+
+- **Zero configuration between generation and execution.** The AI generates a structured session object; the runtime executes it directly. The user never configures a timer.
+- **The schema is the contract.** Both the AI generator and the execution runtime speak the same data format. Changes to one must be reflected in the other.
+- **Feedback must be structured, not just logged.** Qualitative feedback (form breakdown, effort level) is captured in a format the AI can act on specifically, not stored as free text notes.
+- **Data design precedes code.** No feature is implemented until its data representation is defined in `SCHEMA.md`.
+- **Security and encryption are considered from the start** even where not fully implemented in the MVP, to avoid architectural debt when accounts and sync are added.
+- **Shared codebase with native modules where necessary.** The goal is a single shared codebase across platforms. Native modules are acceptable and expected for capabilities that require them (audio ducking, voice recognition, Bluetooth HRM). Every native module must have a defined iOS extension path — platform-specific code is acceptable, platform lock-in is not.
+
+### 1.4 Platform Targets
+
+**MVP:** Android native application.
+
+**Architecture requirement:** The codebase must be structured to extend to iOS without a rewrite. This does not mean iOS must be fully cross-platform from day one. It means:
+- Shared application logic, UI, schema, and AI layer across platforms
+- Native modules for platform-specific capabilities (AudioFocus/ducking, voice recognition, BLE) are expected and acceptable
+- Each native module must have a documented iOS equivalent path — when iOS is added, the native layer is extended, not replaced
+- No architectural decisions that foreclose iOS without a structural rewrite
+
+**Web:** Web was evaluated during tech stack research but is not a current target. The framework choice should not preclude a future web version, but web compatibility is not a requirement for MVP or near-term planning.
+
+---
+
+## 2. User Profile
+
+### 2.1 Target User (MVP)
+
+Single user, local device. No authentication in MVP. The application is designed from the start to support multi-user accounts and cloud sync as a future addition — data structures and encryption approach should not preclude this.
+
+### 2.2 Onboarding Inputs
+
+Collected via structured questionnaire at first launch. Some questions accept free-form text answers. The questionnaire output is passed to the AI plan generator as a structured profile object.
+
+Required fields:
+- Age
+- Biological sex (for metabolic baseline calculations)
+- Current fitness level (sedentary / lightly active / moderately active / very active)
+- Primary goal (general fitness / weight loss / muscle building / cardiovascular health / rehabilitation)
+- Available equipment (multi-select from defined equipment list — see Schema)
+- Available days per week for training
+- Preferred session duration (15 / 20 / 30 / 45 / 60 min)
+- Any injuries or physical limitations (free-form text)
+
+Optional fields:
+- Current weight and height (for future use with nutrition and caloric targets — collected now, not used in MVP)
+- Target weight (for future use — collected now, not used in MVP)
+- Dietary restrictions and preferences (for future nutrition guidance feature — collected now, not used in MVP)
+
+### 2.3 Plan Iteration
+
+After the initial plan is generated from the questionnaire, the user may iterate via natural language conversation with the AI before accepting the plan. Examples: "make the resistance sessions shorter," "I don't have a TRX," "I want more core work." The AI modifies the plan accordingly. When the user accepts the plan, it is written to the session store as the active program.
+
+---
+
+## 2.5 Tech Stack
+
+All decisions in this section are final for MVP. Rationale is recorded here so the agent does not re-litigate them. If a package version conflict arises, surface it for review rather than substituting silently.
+
+### 2.5.1 Framework
+
+**React Native + Expo SDK 55** (React Native 0.83, React 19.2, New Architecture mandatory).
+
+Expo SDK 55 is the target. New Architecture cannot be disabled in SDK 55 — all packages must be New Architecture compatible. Any package that requires the legacy bridge is incompatible and must be flagged before use.
+
+Expo was chosen over Flutter for two reasons: (1) JS/TS is dominant in Claude's training data, making the codebase significantly more agent-writable; (2) Expo SDK 55 ships with explicit Claude Code agent skills and MCP integration, and Callstack has published React Native best practices as agent skills for Claude Code. The agent works at the JS/TS layer almost exclusively — the Expo Modules API abstracts the native build layer.
+
+### 2.5.2 Audio — TTS and Ducking
+
+**TTS:** `expo-speech` (platform native TTS). Routes through the platform AudioFocus session automatically. No separate service or cost.
+
+**Audio ducking:** `expo-audio` with `duckOthers` mode. On Android 8+, the OS handles ducking automatically via AudioFocus when `duckOthers` is set — background media volume is reduced while announcements play, then restored. A foreground service is required to satisfy Android 15 audio policy; this is handled via Expo's background task API. This resolves open question 7 — no custom native module is required for ducking on the MVP target platform.
+
+**iOS equivalent path:** `AVAudioSession` with `.duckOthers` option. When iOS support is added, audio ducking requires an Expo Module wrapping `AVAudioSession` category configuration — this is a well-documented path with no architectural blocker.
+
+### 2.5.3 Voice Recognition
+
+**`expo-speech-recognition`** with `requiresOnDeviceRecognition: true`, continuous mode, and `contextualStrings: ["next", "done", "pause", "go"]`.
+
+Continuous mode suppresses the system listening beep. `contextualStrings` biases recognition toward the small command vocabulary used during execution. `requiresOnDeviceRecognition: true` prevents network calls during sessions and eliminates network-related recognition failures.
+
+Full behavioral spec in Section 5.7.
+
+**iOS equivalent path:** `expo-speech-recognition` wraps `SFSpeechRecognizer` on iOS — the same package works on both platforms.
+
+### 2.5.4 Storage
+
+**PowerSync + SQLCipher.** Full specification in Section 7.2 (Data Architecture).
+
+**iOS equivalent path:** PowerSync SDK supports both React Native and Flutter; SQLCipher is cross-platform. No iOS-specific blocker.
+
+### 2.5.5 Bluetooth HRM
+
+**`react-native-ble-plx`** — actively maintained, New Architecture compatible.
+
+**iOS equivalent path:** `react-native-ble-plx` supports iOS; CoreBluetooth permissions must be added to `Info.plist` when iOS support is added.
+
+---
+
+## 4. System Architecture Overview
+
+The application consists of four distinct subsystems. These must maintain clean boundaries — do not couple them directly.
+
+```
+┌─────────────────────┐
+│   AI Plan Generator  │  — takes user profile + history, outputs session objects
+└────────┬────────────┘
+         │ writes session objects to session store
+┌────────▼────────────┐
+│    Session Store     │  — structured data, source of truth for all sessions
+└────────┬────────────┘
+         │ reads session objects
+┌────────▼────────────┐
+│  Execution Runtime   │  — runs timers, voice, HR monitoring, captures feedback
+└────────┬────────────┘
+         │ writes session results + feedback to history store
+┌────────▼────────────┐
+│    History Store     │  — completed sessions, feedback, biometric logs
+└─────────────────────┘
+         │ read by AI Plan Generator at next plan generation
+```
+
+---
+
+## 4. AI Plan Generator
+
+### 4.1 Responsibilities
+
+- Accept a user profile object and optional history context
+- Output a complete program object (multiple weeks) or a single session object
+- Output must be valid against the schema defined in `SCHEMA.md`
+- Must not output prose — output is structured data only
+- When generating plan adaptation suggestions, must accompany each suggestion with a plain-language rationale the user can read
+
+### 4.2 Plan Generation Trigger Points
+
+- Initial plan generation from questionnaire
+- User-initiated natural language iteration before plan acceptance
+- Post-session suggestion generation when sufficient session history exists (see 4.3)
+- User-initiated natural language plan modification via the plan chat interface (see 4.5)
+- User-initiated natural language plan modification from the suggestion review screen
+- Explicit user request to regenerate or modify plan
+
+### 4.3 Adaptation Rules
+
+The AI uses the following signals to generate plan adaptation suggestions. These are ordered by priority:
+
+1. **Pre-session intensity dial** — user indicates before session start: reduce / normal / push. Applied immediately to that session before execution begins. Modifies the in-memory session object only — the stored session object is not mutated. Not persisted as feedback.
+2. **Post-session effort rating** — too easy / just right / too hard. Persisted. Influences next session of same type.
+3. **Per-exercise form flags** — too easy / felt good / form broke down / too hard. Persisted per exercise. Drives specific exercise-level modification suggestions.
+4. **Real-time HR data** — session HR log compared against target zones defined in session object. Persisted. Influences rest period calibration and intensity suggestions.
+5. **Free-form notes** — stored as text, passed to AI as additional context but not parsed programmatically.
+
+**Suggestion threshold:** The AI does not generate plan adaptation suggestions until a minimum number of sessions have been completed. The AI uses judgment to determine the appropriate threshold based on data quality and consistency, with a general target of 6–10 sessions. Suggestions are weighted toward the most recent sessions in the available history.
+
+**Suggestion delivery:** Suggestions are surfaced as a prompt when the user opens the app. The user can dismiss the prompt or navigate to a review screen. On the review screen:
+- Each suggestion is presented individually with a plain-language rationale explaining why the AI is recommending it
+- The user accepts or rejects each suggestion independently
+- After reviewing structured suggestions, the user may interact with the AI via free-form natural language to further modify the plan (e.g. "I'd prefer to reduce reps on exercise B rather than reduce the weight")
+- No suggestion is applied to the plan until explicitly accepted by the user
+
+### 4.5 User-Initiated Plan Modification — Plan Chat Interface
+
+A persistent chat entry point is available on the main dashboard screen at all times. This allows the user to modify the plan via natural language conversation with the AI, independent of the AI suggestion flow.
+
+**Entry points:**
+- Primary: a chat button on the main dashboard, opens a plan-level conversation
+- Secondary: user may optionally navigate into a specific session view before opening chat, which passes that session as context to the AI. This does not restrict the scope of changes — it informs the AI of the user's likely focus.
+
+**Scope resolution:**
+- If the user's intent clearly applies to the full program (e.g. "I hate goblet squats, replace them everywhere"), the AI applies it program-wide without asking.
+- If the user's intent clearly applies to a single session (e.g. "remove the last exercise from Wednesday"), the AI applies it to that session only without asking.
+- If scope is ambiguous, the AI asks a single clarifying question before proposing any changes. It does not infer scope silently.
+- The default scope ambiguity rule — ask vs. infer — is a runtime behavior preference that should be easy to reconfigure without a structural change (a prompt-level setting, not a schema change).
+
+**Conversational flow:**
+- The experience mirrors the initial plan creation conversation — multiple rounds of back and forth are expected and supported
+- The AI has access to: the current plan (as structured data), the plan context record (see below), and recent session history
+- The AI does not have access to the original plan creation conversation history — it reasons from the current plan state and the context record
+
+**Plan context record:**
+- A human-readable record maintained alongside the plan that captures significant decisions, user preferences, and constraints established during plan creation and modification
+- Examples: "user has no TRX," "user dislikes high-impact exercises," "user prefers sessions under 25 minutes," "goblet squats replaced with TRX squat on 2026-03-10 — user finds them uncomfortable"
+- The AI reads this record at the start of every plan modification conversation
+- The AI appends to this record when a meaningful preference or constraint is established during conversation — this is part of the AI's responsibilities, not a manual user action
+- The context record is plain text, human-readable, and visible to the user
+
+**Preview and confirmation:**
+- Before applying any change, the AI presents a before/after comparison scoped to only the specific sessions and exercises that are directly affected by the change — not the full program.
+- The primary format is a structured diff view showing the changed items side by side (before / after).
+- If the diff view is impractical (small screen, large number of changes), the app falls back to a short narrative paragraph written by the AI summarizing what will change and why. The AI generates this paragraph as part of the `modifyPlan` response — it is not improvised at render time.
+- The user confirms or rejects the proposed changes before anything is written to the session store.
+- After confirming, the user may continue the conversation to make additional modifications in the same session.
+- No changes are written to the session store until explicitly confirmed by the user.
+
+### 4.6 Nutrition Guidance — Future Feature
+
+> **OUT OF SCOPE FOR MVP.** The nutrition guidance feature is fully specified here for future implementation. No nutrition data is generated, stored, or displayed in the MVP. The schema must include placeholder fields for nutrition data so it can be added without a breaking schema change.
+
+Each session object will include pre- and post-workout nutrition guidance when this feature is implemented. Guidance will be specific to session type (resistance vs. cardio) and generated by the AI as part of the session object — not a static lookup. Guidance will include:
+
+- Specific food and timing recommendations before the session
+- Specific recovery nutrition recommendations after the session
+- Macro targets (protein, carbohydrates, fat) with per-item breakdowns
+- Rationale tied to session type and intensity
+
+Nutrition fields are defined in `SCHEMA.md` as optional nullable fields.
+
+---
+
+## 5. Execution Runtime
+
+### 5.1 Core Execution Loop
+
+The runtime receives a session object and executes it without any user configuration. The execution model differs by session block type:
+
+**Timed circuit blocks (resistance training):**
+- Work interval timer runs for specified duration
+- Rest interval timer runs for specified duration
+- Timers advance automatically
+- User can tap or say "done" / "next" to advance early
+- User can manually extend any timed interval (work or rest) by tapping an extend button; work and rest extension increments are independently user-configurable settings (default: 10 seconds each, one tap adds one increment)
+- Round rest timer runs between rounds; can auto-extend based on HR recovery (see 5.3)
+- Voice announces exercise name at start of each work interval
+- Form cues are displayed on screen during work interval
+
+**Rep-based exercises:**
+- Session object may specify a fixed rep count or "to failure"
+- For fixed rep count: timer is not used; user taps done when reps are complete
+- For "to failure": user performs as many reps as possible and records the count after completing the set
+- For bilateral exercises (single arm / single leg): user records reps for each side on a single screen with left and right entry fields; a "copy left to right" button sets the right value equal to the left entry
+
+**Cardio blocks (rowing, cycling, running):**
+- Duration-based segments with target HR zone displayed
+- No auto-advancing timer — user controls segment transitions
+- User can manually extend any segment using the same extend control as timed blocks
+- HR zone compliance monitored in real time when HR data is available (see 5.3)
+- Voice alerts fire if HR is outside the target zone per the rules in 5.3
+
+**Warmup and cooldown blocks:**
+- Checklist style — items displayed, user taps to advance
+- Optional timer per item if duration is specified in session object
+- User can manually extend timed warmup/cooldown items
+
+### 5.2 Pre-Session Flow
+
+1. User selects session from day in plan (may be named by type ie Upper 1, Lower 1, mobility 1, etc.)
+2. Pre-session intensity dial presented (reduce / normal / push) — modifies the in-memory session object only before execution begins; stored session object is not mutated
+3. Session begins
+
+> **Nutrition display at pre/post session — Future Feature:** When the nutrition guidance feature is implemented, the pre-session flow will display pre-workout nutrition guidance (from the session object) before the intensity dial, and post-workout nutrition guidance will be shown on the session complete screen. See Section 4.4.
+
+### 5.3 Real-Time Heart Rate Integration
+
+**Heart rate data is optional throughout.** If no HR source is connected and no manual entry is provided, the session proceeds normally with all HR-dependent features inactive. The app does not prompt the user to enter HR manually — manual entry is available but user-initiated.
+
+**Data sources (in priority order):**
+1. Bluetooth HRM (direct device connection)
+2. Platform health API (Android Health Connect in MVP; Apple HealthKit is a future feature) — provides live HR if a connected wearable is active
+3. Manual entry — user-initiated only, not prompted by the app
+
+**HR data usage during execution (only active when HR data is available):**
+- Current HR displayed persistently during session
+- HR zone compliance indicator (below zone / in zone / above zone)
+- **Automatic rest extension:** If HR has not dropped below `recoveryTargetBPM` (defined per exercise block in schema) by the time the rest interval expires, the rest timer extends in 10-second increments until the target is met or the maximum extension ceiling is reached. The maximum extension ceiling defaults to 60 seconds and is a global user-configurable setting; it is not stored in the session schema and has no per-exercise override. After the ceiling is reached, the session continues and the user may manually extend or pause. User is notified visually and via voice when an extension occurs.
+- HR data is logged at minimum 5-second intervals throughout the session and stored in the session result object
+
+**HR voice alert rules (only active when HR data is available):**
+- **Above ceiling:** Alert fires if HR exceeds the zone ceiling continuously for 15 seconds. Alert repeats every 15 seconds while the condition persists.
+- **Below floor:** A one-time grace period applies at session start to allow warm-up. The grace period duration is defined in the session object per block type (default: 5 minutes for cardio blocks). After the grace period expires, alert fires if HR remains below the zone floor continuously for 15 seconds. Alert repeats every 15 seconds while the condition persists.
+- Alerts use audio ducking — see Section 5.4.
+
+### 5.4 Voice Interface
+
+**Output (text-to-speech):**
+- Exercise name announced at start of each work interval
+- "Prepart for [next exercise] [n] reps" announced at start of rest intervals
+- Countdown beep for last 3 seconds remaining in any timed interval
+- "Round [N] complete, [X] seconds rest" announced between rounds
+- HR zone alerts when applicable (see 5.3)
+- Interval extension announced when automatic rest extension occurs ("Extending rest — heart rate still above target")
+- **All voice output uses audio ducking:** background media (music, podcasts) volume is temporarily reduced while the announcement plays, then restored to its previous level. Voice output must not stop or replace background media — it must layer over it using platform audio ducking APIs.
+
+**Input (speech recognition):**
+- "Next" or "Done" — advance to next interval or exercise
+- "Pause" — pause current interval timer
+- Voice input is optional — all actions are also available via on-screen controls
+- Voice recognition runs continuously during session
+- Simple keyword matching only — no natural language parsing during execution
+
+### 5.5 Post-Session Flow
+
+1. Session complete screen displayed with session stats (duration, rounds completed, exercises)
+2. Feedback collection:
+   - Overall effort rating (too easy / just right / too hard)
+   - Per-exercise form flags (too easy / felt good / form broke down / too hard)
+   - For rep-based exercises: actual rep counts are pre-populated from execution log
+   - Free-form notes field (optional)
+3. Feedback and HR log written to history store
+4. If sufficient session history exists, AI suggestion generation is triggered asynchronously — user does not wait for it; suggestions surface the next time the app is opened
+
+> **Post-session nutrition display — Future Feature:** When the nutrition guidance feature is implemented, post-workout nutrition guidance will be displayed on the session complete screen before the feedback collection flow. See Section 4.4.
+
+### 5.6 Execution Engine Behavior
+
+This section defines the execution model precisely. These rules govern how the runtime constructs and runs a session. The agent must implement these rules exactly — do not infer behavior for cases not listed here, surface them for review.
+
+**Session construction:**
+The full step sequence is constructed linearly from the session object before execution begins. The session object is a complete, inspectable description of the session — it is not a live state machine. The execution runtime reads this sequence and advances through it. Steps are not generated dynamically during execution.
+
+**Step types:**
+
+| Step Type | Description |
+|---|---|
+| `warmup-work` | Warmup exercise — may be timed or rep-based |
+| `warmup-delay` | 5-second automatic pause between warmup items |
+| `work` | Work interval — may be timed or rep-based |
+| `rest` | Rest interval between work sets |
+| `stretch` | Stretch step — if there is a left side and right side, each is their own step |
+| `between` | Rest interval between rounds |
+| `cooldown-work` | Cooldown exercise — may be timed or rep-based |
+| `cooldown-delay` | Automatic pause between cooldown items |
+
+**Hold-before-step pattern:**
+All timed steps (`warmup-work`, `work`, `stretch`, `cooldown-work`) hold for user confirmation before the interval begins. The runtime loads the step, sets `paused = true`, displays a "Go" button, and plays the announcement. The interval timer does not start until the user taps "Go" or says "go." All other step types advance automatically.
+
+**Auto-start on session select:**
+There is no separate "Start Session" button. Selecting a session begins execution immediately. If the first step in the sequence would trigger a hold (i.e., it is a timed step), a 3-second intro delay step is prepended to the sequence before execution begins, giving the user time to get into position. If the first step is rep-based, execution starts directly with no intro delay.
+
+**Between-round sequence:**
+At the end of each round (except the final round), the sequence is: `stretch` → `between` rest. At the end of the final round, the sequence is: `stretch` only — no `between` step follows.
+
+**Announcement model:**
+Two announcement functions fire at step transitions:
+
+- `announceCurrentEx(step)` — fires when a `work`, `stretch`, `warmup-work`, or `cooldown-work` step starts. Announces the exercise name. If the step is rep-based, includes the rep string (e.g., "8 reps"). If the step is timed, includes the duration in seconds (e.g., "40 seconds").
+- `announceNextEx(step)` — fires when a `rest`, `between`, `warmup-delay`, or `cooldown-delay` step starts. Announces what is coming next. Detail format is the same as above.
+
+**Schema-driven durations:**
+All durations (work interval, rest interval, between-round rest, stretch hold, warmup item duration, cooldown item duration) are carried in the session object per exercise and per session. There are no runtime constants for durations. The execution runtime reads durations from the session object only.
+
+**Web Speech API:**
+The Web Speech API must not be used. Voice recognition is provided by `expo-speech-recognition` only (see Section 5.7). This rules out any web-based execution path for voice features.
+
+### 5.7 Voice Input Behavior
+
+This section specifies runtime voice input behavior in full. All voice commands have on-screen touch equivalents — voice is a convenience enhancement, not a required interaction path.
+
+**Recognition configuration:**
+- Library: `expo-speech-recognition`
+- Mode: continuous
+- `requiresOnDeviceRecognition: true` — if on-device model is not available, voice recognition is silently disabled for the session; the user is not blocked from starting
+- `contextualStrings: ["next", "done", "pause", "go"]` — biases recognition toward the command vocabulary
+- Android 13+ required for continuous mode. On Android 12 and below, voice input is silently disabled; touch controls remain fully functional.
+
+**Offline model download:**
+The on-device recognition model must be downloaded before first use. The app checks for model availability on first launch and prompts the user to download it. If the user declines or download fails, voice input is silently disabled. The download prompt is shown once — it does not re-prompt on every launch. The user can enable it later via settings.
+
+**Mic state indicator:**
+A persistent, unobtrusive indicator is shown during session execution whenever voice recognition is actively listening. The indicator must be clearly visible but must not distract from the exercise display. When voice recognition is disabled (model unavailable, Android < 13, or user has disabled it), the indicator is not shown.
+
+**Reliability — restart-loop pattern:**
+`expo-speech-recognition` wraps the Android SpeechRecognizer API, which is designed for short-burst dictation and has known reliability issues in sustained use: recognition can stop after audio playback events, on Bluetooth device connect/disconnect, or after silence timeouts. The mitigation is an automatic restart-loop: when recognition stops unexpectedly during an active session, the runtime restarts it immediately. This restart-loop is the intended reliability strategy for MVP — it is not a workaround to be removed later.
+
+Known issues with `expo-speech-recognition` in sustained use (tracked upstream):
+- Network errors on long sessions when on-device model not fully engaged (#131)
+- Recognition stops after `expo-audio` playback (#130)
+- 5-second silence timeout causes recognition to stop (#98)
+- Stops on Bluetooth device connect/disconnect (#133)
+
+The restart-loop pattern addresses all of these. `requiresOnDeviceRecognition: true` addresses #131 specifically.
+
+**Future migration path:**
+`react-native-vosk` is architecturally superior for sustained in-session recognition (owns its own audio pipeline, no session limits, no network dependency). It is not used in MVP because its compatibility with React Native New Architecture and Expo SDK 55 is unconfirmed. If voice reliability remains a problem after the restart-loop mitigation, Vosk is the preferred migration target. Any Vosk evaluation must confirm New Architecture compatibility before adoption.
+
+---
+
+## 6. AI Layer
+
+### 6.1 Architecture Overview
+
+The AI layer is a discrete module with a clean boundary between it and the rest of the application. All AI calls pass through this module — no other part of the application calls an AI provider directly. This boundary makes provider swaps, prompt updates, and model routing changes possible without touching application logic.
+
+The AI layer exposes four named functions to the application:
+
+| Function | Primary Input | Primary Output | Default Model |
+|---|---|---|---|
+| `generatePlan` | UserProfile + optional history | Program object (structured) | Sonnet 4.6 |
+| `modifyPlan` | Current plan + context record + conversation | Diff object + plain-language summary | Sonnet 4.6 |
+| `generateSuggestions` | Session history + current plan | Suggestion array with rationale | Sonnet 4.6 |
+| `summarizeContextRecord` | Current context record + new conversation | Updated context record | Haiku 4.5 |
+
+Each function has its own system prompt, input assembly logic, and output parser. They are independent — changes to one do not affect the others.
+
+### 6.2 Provider Abstraction
+
+The AI layer communicates with model providers through a single provider interface. In MVP, this interface has one implementation: Anthropic. The interface contract is:
+
+- Accept a model identifier, system prompt, and user message
+- Return a structured response object
+- Handle retries and error normalization
+
+**Whole-layer swap:** Changing providers in MVP means swapping the single interface implementation. No application code changes required.
+
+**Future per-function routing:** The four named functions already map to discrete prompt + model configurations. Adding per-function provider routing later requires adding a routing config to the interface layer only — it does not require changes to application code or prompt logic. This is a low-effort future enhancement, not a structural change.
+
+### 6.3 Prompt Storage
+
+**MVP:** Prompts are stored as versioned files in the codebase alongside the code that calls them. Each AI function has its own prompt file. Prompt updates require a codebase deploy.
+
+**Future remote config:** The prompt loading mechanism is abstracted from the start — the AI layer calls a `loadPrompt(functionName)` function rather than importing prompt strings directly. In MVP, `loadPrompt` reads from local files. In the future, it fetches from a remote config endpoint with a local fallback.
+
+**Remote config endpoint requirements (for future implementation):**
+- Returns the current prompt for a given function name
+- Accepts a user identifier and returns a prompt variant based on that identifier — this enables staged rollouts and A/B testing of prompt changes on a subset of users without a new app release
+- Falls back to the bundled prompt if the endpoint is unreachable
+- Response is cached for the session to avoid per-call latency
+
+**Prompt versioning:** Each prompt file includes a version field. The version is logged alongside every AI call in the session result so that the prompt version responsible for any given output is always known. When a prompt is updated, the version is incremented. The agent rule from Section 10 (open question 5) applies: prompt version bumps are treated the same as schema version bumps — they must be recorded before dependent code changes.
+
+### 6.4 Structured Output Contract
+
+All AI functions return structured data, not prose. The output schema for each function is defined in `SCHEMA.md`. The AI layer is responsible for:
+
+- Assembling the input context (plan JSON, history slice, context record) before each call
+- Validating that the model response conforms to the expected output schema
+- Retrying with a clarifying prompt if the output fails validation (max 2 retries)
+- Surfacing a graceful error to the application if validation fails after retries — never passing malformed output to the session store
+
+### 6.5 Cost and Model Guidance
+
+- `generatePlan`, `modifyPlan`, and `generateSuggestions` require genuine multi-step fitness reasoning and produce structured output the app depends on. Sonnet 4.6 is the default. Do not substitute Haiku for these functions without explicit quality validation against real plan outputs.
+- `summarizeContextRecord` is a compression task with no fitness reasoning requirement. Haiku 4.5 is appropriate and ~70% cheaper than Sonnet.
+- All four functions operate well within normal context window limits. Long-context pricing tiers are not expected to be triggered in MVP.
+- Estimated cost per active user per month at MVP scale: well under $0.10 across all four functions combined. Cost becomes a material consideration only at significant user scale — monitor token usage per function from launch so the data exists when needed.
+
+---
+
+## 7. Data Architecture
+
+### 7.1 Schema Authority
+
+`SCHEMA.md` is the single source of truth for all data structures. It defines:
+- UserProfile object
+- Program object
+- Session object
+- ExerciseBlock object
+- FeedbackObject
+- SessionResult object
+- NutritionGuidance object
+
+No data structure is implemented in code until it is defined in `SCHEMA.md`. If code and schema diverge, schema wins.
+
+### 7.2 Storage — MVP
+
+**PowerSync + SQLCipher.**
+
+- **PowerSync** provides the sync layer. In MVP, it operates in local-only mode — no backend is connected. When cloud sync is added, PowerSync's sync engine activates against a connected backend without data migration, schema changes, or changes to read/write code. This directly satisfies the hard architectural requirement for seamless cloud transition.
+- **SQLCipher** provides encryption at rest. Encryption keys are not hardcoded — key management must use platform secure storage (Android Keystore). Data structures support future per-user encryption without schema migration because user ID fields are included from the start (see Section 7.4).
+- PowerSync's free tier is sufficient for MVP scale. Cost becomes a consideration at significant user scale — monitor sync volume from launch.
+
+**Storage abstraction:** All reads and writes go through a storage abstraction layer. Application code does not call PowerSync or SQLCipher directly. This ensures that the cloud sync activation (PowerSync local → PowerSync connected) requires changes only to the abstraction layer implementation, not to any code that reads or writes data.
+
+### 7.3 Data Separation
+
+Four logical stores with clean read/write boundaries:
+
+| Store | Written By | Read By |
+|---|---|---|
+| UserProfile | Onboarding questionnaire | AI Plan Generator |
+| SessionStore | AI Plan Generator | Execution Runtime |
+| HistoryStore | Execution Runtime | AI Plan Generator |
+| PlanContextRecord | AI Plan Generator, Plan Chat | AI Plan Generator, Plan Chat |
+| NutritionStore | AI Plan Generator *(future)* | Execution Runtime *(future)* |
+
+PlanContextRecord is a plain-text append-only log maintained by the AI and readable by the user. It is passed as context into every plan modification conversation. NutritionStore is defined in the schema with nullable fields but is not populated or read in the MVP.
+
+---
+
+## 7. MVP Scope
+
+### 7.1 In Scope
+
+- Structured onboarding questionnaire (including collection of future-use fields for nutrition and weight)
+- AI plan generation from questionnaire output
+- Natural language plan iteration before acceptance
+- Single-user local storage with cloud-transition-ready architecture
+- Execution runtime for resistance circuit sessions (timed and rep-based)
+- Execution runtime for steady-state cardio sessions (rowing / cycling / running)
+- Rep-based "to failure" exercise support with rep count logging
+- Bilateral exercise support with independent left/right rep logging
+- Manual interval extension (user-configurable increment)
+- Automatic timed intervals (work / rest / round rest)
+- Voice announcement of exercises and intervals (with audio ducking)
+- Voice command input ("next", "done", "pause")
+- Pre-session intensity dial
+- Post-session feedback collection (effort + per-exercise flags + rep counts + notes)
+- Real-time HR display from Bluetooth HRM or Android Health Connect (optional — session proceeds without it)
+- Automatic rest extension based on HR recovery target (when HR data available)
+- HR voice alerts above ceiling and below floor (when HR data available)
+- HR logging throughout session (when HR data available)
+- AI plan adaptation suggestions with per-suggestion rationale and accept/reject review
+- Free-form natural language plan modification from suggestion review screen
+- Plan chat interface on main dashboard for user-initiated plan modification at any time
+- Plan context record — AI-maintained preference and decision log passed into all plan modification conversations
+- Before/after change preview with user confirmation before any plan change is written
+- Scope clarification — AI asks when modification scope is ambiguous
+- Suggestion threshold enforcement (minimum session history before suggestions generated)
+- Android native application (iOS-extensible architecture required — see Section 1.4)
+
+### 7.2 Explicitly Out of Scope — MVP
+
+- User accounts and authentication
+- Cloud sync
+- Nutrition guidance display (schema fields defined, feature deferred — see Section 4.6)
+- iOS-specific HealthKit integration (Android Health Connect is in scope; HealthKit deferred)
+- Mid-session AI plan modification
+- HRV and sleep quality integration
+- Social features
+- Video exercise demonstrations
+- Wearable display (Apple Watch, Wear OS)
+- Gamification
+
+### 7.3 Future Requirements (Inform Architecture Now)
+
+These features are not being built in MVP but must not be architecturally precluded:
+
+- **Nutrition guidance** — schema must include nullable nutrition fields on session objects. See Section 4.6 for full specification.
+- **User accounts and cloud sync** — data structures must support user IDs and be encryptable. Do not use device identifiers as primary keys. Storage abstraction must support seamless transition (see Section 7.2).
+- **iOS HealthKit integration** — HR data abstraction layer must accommodate both Health Connect and HealthKit without schema changes.
+- **HRV and sleep quality as pre-session readiness signals** — history store must have a designated place for daily readiness data even if not populated in MVP.
+- **Mid-session AI adaptation** — session object must be designed as mutable mid-execution without breaking the execution runtime.
+- **Wearable companion apps** — session object must be serializable to a format compatible with watchOS / Wear OS constraints.
+- **Longitudinal program progression** — history store must support querying exercise-level performance trends across sessions and weeks.
+
+---
+
+## 8. Walking Skeleton — First Milestone
+
+The first milestone is a complete end-to-end path through the core loop using one session type only. Nothing else is built until this path works correctly.
+
+**Scope of walking skeleton:**
+
+1. Hardcoded user profile (no questionnaire UI yet)
+2. AI generates a valid resistance circuit session object from the profile
+3. Session object is written to session store
+4. Execution runtime reads session object and executes one complete resistance session — timers run, exercises advance, voice announces exercise names
+5. Post-session feedback is captured and written to history store as a valid FeedbackObject
+6. AI reads session object + feedback and generates a modified session object
+7. Modified session object is written to session store and is executable by the runtime
+
+**Done condition:** A developer can run the app, execute a full resistance session from start to post-session feedback, and observe that the next session object in the store reflects the feedback given. Additionally, the developer must verify that background music playing from an external app (e.g. Spotify) continues playing without interruption throughout the session, including during TTS announcements (which should duck briefly then restore) and while voice recognition is active.
+
+**Excluded from walking skeleton:**
+- Questionnaire UI
+- HR integration
+- Voice input
+- Pre-session intensity dial
+- Natural language plan iteration
+- Cardio session type
+- Rep-based and to-failure exercises (timed circuit only)
+- Suggestion review screen (AI reads feedback and generates suggestions, but no UI for reviewing them yet)
+
+These are added as subsequent milestones after the walking skeleton is verified.
+
+---
+
+## 9. Non-Functional Requirements
+
+### 9.1 Performance
+
+- Session object must load and be ready for execution within 500ms of user selecting a session
+- Timer accuracy must be within ±100ms
+- Voice announcement must begin within 300ms of interval start
+- HR data must update display within 1 second of receipt from device
+
+### 9.2 Offline Operation
+
+- The execution runtime must function fully offline once a session is loaded
+- AI plan generation requires network connectivity
+- HR data from platform APIs must be accessible offline if wearable is directly connected
+
+### 9.3 Security and Encryption
+
+- All user health data stored locally must be encrypted at rest
+- Encryption keys must not be hardcoded
+- Data structures must support future addition of per-user encryption without schema migration
+- No health data is transmitted to any third party without explicit user consent
+
+### 9.4 Accessibility
+
+- All timed intervals must have both visual and audio indicators
+- Voice interface must be supplementary, not required — all actions available via touch
+- Font sizes must respect system accessibility settings
+
+---
+
+## 10. Open Questions
+
+Questions marked **CLOSED** are resolved. Remaining open questions must be resolved before or during the walking skeleton milestone unless otherwise noted. Do not make unilateral decisions on open items — surface them for review.
+
+1. ~~**Schema design for bilateral exercises**~~ — **CLOSED.** Left and right sides are stored as separate exercise entries in the session object. Exercise entries support linking to related exercises (a left entry can reference its paired right entry). The runtime detects the link and displays both on a single logging screen with left/right fields.
+
+2. ~~**Progression representation**~~ — **CLOSED.** Progression is expressed as an AI-owned free-text note per exercise (`progressionNote`). The AI writes human-readable instructions ("try the red band next session," "move feet 6 inches forward") based on session history. The runtime displays the note as-is. No structured difficulty encoding in MVP. A nullable numeric `difficultyRating` field is included in the schema for future use — the AI does not read or write this field in MVP. **Known limitation:** AI progression reasoning relies on text pattern-matching rather than a numeric signal; revisit after MVP when real session history is available.
+
+3. ~~**Rest extension ceiling**~~ — **CLOSED.** Default maximum automatic rest extension is 60 seconds. After the ceiling is reached, the session continues and the user may manually extend or pause. This is a global user-configurable setting; it is not stored in the session schema and does not need a per-exercise override.
+
+4. ~~**AI model and prompt storage**~~ — **CLOSED.** Fully specified in Section 6. Prompts are versioned files in the codebase in MVP, loaded via an abstracted `loadPrompt(functionName)` function. Remote config endpoint with user-identifier-based variant routing is the defined future state. Prompt versions are logged with every AI call.
+
+5. ~~**Schema versioning**~~ — **CLOSED.** Every schema object carries a `schemaVersion` field stamped at write time. No migration functions are written proactively. The reader applies lightweight defaulting logic for known version gaps ("if version < N, field X didn't exist, default to null"). Writes always use the current schema and always stamp the current version. Destructive changes (renames, type changes, removals) are avoided by default — schema changes should be additive. When a destructive change is unavoidable, the version field provides the signal needed to write a targeted migration at that time. **Agent rule:** every schema change requires a version bump and a corresponding one-liner in the compatibility layer before any code that reads that field is written.
+
+6. ~~**Interval extension increment**~~ — **CLOSED.** Default extension increment is 10 seconds per tap. Work interval and rest interval increments are independently configurable in user settings.
+
+7. ~~**Audio ducking platform support**~~ — **CLOSED.** `expo-audio` with `duckOthers` mode. On Android 8+, the OS handles ducking automatically via AudioFocus — no custom native module required. A foreground service satisfies Android 15 audio policy via Expo's background task API. iOS equivalent path: `AVAudioSession` with `.duckOthers` via an Expo Module. See Section 2.5.2.
+
+8. ~~**Plan context record size management**~~ — **CLOSED.** The AI manages context record size via intelligent summarization. When the record grows beyond a threshold, the AI condenses it while preserving high-signal persistent facts (physical limitations, equipment constraints, strong preferences). Transient or superseded entries are dropped. Summarization is triggered by the AI, not by a manual user action.
+
+9. ~~**Before/after preview format**~~ — **CLOSED.** Scope: only the specific sessions and exercises directly affected by the change (not the full program). Primary format: structured diff view (before / after side by side). Fallback: a short narrative paragraph generated by the AI as part of the `modifyPlan` response — not improvised at render time. See Section 4.5.
+
+---
+
+## 11. Document Maintenance
+
+This document is a living spec. When requirements change:
+- Update the relevant section
+- Add an entry to the changelog below
+- If the change affects the schema, update `SCHEMA.md` first
+
+When the agent makes an implementation decision not covered here, it records it in `DECISIONS.md`, not in this file.
+
+### Changelog
+
+| Version | Date | Change |
+|---|---|---|
+| 0.1 | 2026-03-06 | Initial draft |
+| 0.2 | 2026-03-06 | Nutrition moved to future feature (Section 4.4); plan adaptation changed to suggestion/review model with rationale requirement; HR alerts specified (above 15s / below with 5-min grace period, both repeat at 15s); HR data marked optional throughout; manual interval extension added with user-configurable increment; rep-based to-failure and bilateral exercise logging added; storage seamless cloud transition declared as hard requirement; audio ducking specified for voice output |
+| 0.3 | 2026-03-06 | Added plan chat interface (Section 4.5): persistent dashboard chat button, session-scoped context passing, AI asks on ambiguous scope, plan context record (AI-maintained preference/decision log), before/after change preview with plain-language fallback, user confirmation before writes; updated data ownership table to include PlanContextRecord; added open questions 8 (context record size management) and 9 (before/after preview format) |
+| 0.4 | 2026-03-07 | Closed open questions 1, 2, 3, 6, 8. Bilateral: left/right as linked exercise entries. Progression: AI-owned free-text progressionNote, nullable difficultyRating in schema for future use. Rest extension ceiling: 60s default, global setting only (not in session schema). Extension increment: 10s default, work and rest independently configurable. Context record: AI-driven intelligent summarization. Updated Section 5.1 and 5.3 to reflect closed defaults. |
+| 0.5 | 2026-03-07 | Closed open question 5. Schema versioning: Option C — schemaVersion field on every object, no proactive migration functions, lightweight compatibility layer on read for known version gaps, additive-by-default discipline, destructive changes deferred until needed. Agent rule added: every schema change requires version bump and compatibility layer entry before dependent code is written. |
+| 0.6 | 2026-03-07 | Added Section 6 (AI Layer): four named AI functions with model assignments, whole-layer provider abstraction with low-effort path to per-function routing, prompt storage as versioned codebase files with abstracted loader, remote config endpoint with user-identifier-based variant routing as defined future state, structured output contract with validation and retry, cost guidance. Closed open question 4. Renumbered former Section 6 (Data Architecture) to Section 7. Fixed cross-references throughout. |
+| 0.7 | 2026-03-07 | Clarified platform strategy: Android-only MVP, iOS-extensible architecture required. Added Section 1.4 (Platform Targets). Added design principle: shared codebase with native modules where necessary, every native module must have a documented iOS equivalent path. Updated MVP scope list. Web removed as current target. |
+| 0.8 | 2026-03-08 | Added Section 2.5 (Tech Stack): React Native + Expo SDK 55, expo-speech TTS, expo-audio ducking, expo-speech-recognition voice input, PowerSync + SQLCipher storage, react-native-ble-plx BLE — all final for MVP with iOS equivalent paths documented. Updated Section 7.2 (Storage) with PowerSync + SQLCipher spec replacing placeholder. Added Section 5.6 (Execution Engine Behavior): sequence construction, step types, hold-before-step, auto-start, between-round sequence, announcement model, schema-driven durations, Web Speech API exclusion. Added Section 5.7 (Voice Input Behavior): recognition config, offline model download, mic indicator, restart-loop reliability strategy, Vosk as future migration path. Closed open question 7 (audio ducking). Closed open question 9 (before/after preview format — scope: changed items only; fallback: AI-generated narrative paragraph). Updated Section 4.5 preview spec to match closed decision. All open questions now closed. Updated walking skeleton done condition to require explicit verification that background music from an external app continues playing uninterrupted during TTS announcements and voice recognition. |

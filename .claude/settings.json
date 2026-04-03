@@ -4,7 +4,12 @@
       "Bash(node -e \"JSON.parse\\(require\\(''fs''\\).readFileSync\\(''.claude/settings.json'',''utf8''\\)\\); console.log\\(''Valid JSON''\\)\")",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(node -e \"JSON.parse\\(require\\(''fs''\\).readFileSync\\(''.claude/settings.json'',''utf8''\\)\\); console.log\\(''VALID''\\)\")",
+      "Read(//c/Users/James/.claude/projects/c--Users-James-Documents-Projects-AIAgents-AdaptiveWorkout/memory//**)",
+      "Read(//c/Users/James/.claude/projects/c--Users-James-Documents-Projects-AIAgents-AdaptiveWorkout/memory/**)",
+      "Bash(chmod +x ~/.claude/scripts/notify-stop.sh)",
+      "Read(//c/Users/James/.claude/scripts/**)"
     ]
   },
   "hooks": {
