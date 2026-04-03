@@ -545,33 +545,17 @@ THEN the onboarding conversation is shown automatically
 
 ## 9. Data Schema
 
-`docs/schema.md` is the single source of truth. The entities below are required
-for MVP. Every schema object must carry a `schemaVersion` field. Schema changes must
-be additive by default; destructive changes require a version bump and a compatibility
-layer entry before any dependent code is written.
+`docs/schema.md` is the single source of truth for all data structures, entity
+definitions, field names, types, and versioning policy. Read that document for
+all schema detail.
 
-**Required MVP entities:**
-
-| Entity | Key Fields |
-|---|---|
-| UserProfile | goals, equipment, sessionsPerWeek, duration, fitnessLevel, limitations, futureUseFields (nullable) |
-| Plan | id, name, description, contextRecord, config (defaultWorkSec, restBetweenExSec, restBetweenRoundsSec) |
-| Session | id, planId, name, type, orderInPlan, rounds, workSec, restBetweenExSec, restBetweenRoundsSec |
-| WarmupItem | id, sessionId, order, name, type (timed/rep), durationSec, reps, equipment, formCues, youtubeUrl |
-| Exercise | id, sessionId, order, name, type (timed/rep), durationSec, reps, weight, equipment, formCues, youtubeUrl |
-| BetweenRoundStretch | id, sessionId, name, durationSec |
-| CooldownItem | id, sessionId, order, name, durationSec, formCues |
-| SessionFeedback | id, sessionId, completedAt, isComplete, commentText |
-| PlanContextRecord | id, planId, content (plain text), updatedAt |
-
-**Schema must also accommodate future without breaking changes:**
-- Per-exercise logging (reps completed, weight used)
-- Structured per-exercise form flags
-- Session effort rating
-- HR time-series log
-- Multiple saved plans
-- User ID for multi-user / cloud sync
-- Nutrition fields (nullable, not populated in MVP)
+**Policy summary (authoritative version in `docs/schema.md`):**
+- Every schema object carries a `schemaVersion` field
+- Schema changes must be additive by default
+- Destructive changes require a version bump and a compatibility layer entry
+  before any dependent code is written
+- AI input and output schemas are defined in `docs/schema.md` alongside the
+  storage entities
 
 ---
 
@@ -720,4 +704,5 @@ implementation decision not covered here, it records it in `docs/decisions.md`.
 | Version | Date | Summary |
 |---|---|---|
 | 0.1–0.8 | 2026-03-06 to 2026-03-08 | Initial draft through full execution engine spec, AI layer, platform strategy, tech stack, voice input, HR integration (see root PRD.md for detailed per-version notes) |
+| 1.1 | 2026-04-03 | §9 stripped of entity detail — docs/schema.md is the sole source of truth for all data structures. PRD now only states versioning policy and points to schema.md. |
 | 1.0 | 2026-04-03 | Merged root PRD.md (v0.8) with session-based decisions. Voice input (STT) moved to future. HR integration moved to future. Pre-session intensity dial moved to future. Cardio session execution removed (out of scope, may not return). Storage changed to SQLite + SQLCipher for MVP (PowerSync as future path). Post-session feedback simplified to free-form text only in MVP (structured flags future). Plan modification: no full conversation history retained — plan context record is the continuity mechanism. TTS voice: platform default for MVP. Orientation: portrait only. Mid-session exit: default to resume; explicit End Session requires confirmation dialog. Exercise detail bottom sheet added to MVP scope (full form cues + YouTube link). Walking skeleton simplified to match updated MVP scope. All open questions closed. |
