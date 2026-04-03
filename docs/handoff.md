@@ -103,3 +103,49 @@
     - New Architecture is enabled (newArchEnabled: true in app.json) — all packages must be
       New Architecture compatible; flag any that are not before installing
     - Run /verify-build-commands after first real code is written to confirm build pipeline works
+
+---
+
+## 2026-04-03T14:30:00Z
+**Completed this session:**
+- Ran /preplan on the Walking Skeleton (PRD §11) — all blocking and clarifying questions resolved
+- Confirmed @op-engineering/op-sqlite as the storage package (downsides reviewed and accepted)
+- Confirmed AI calls mocked in tests; real key added to .env before live run
+- Confirmed expo-audio basic ducking for skeleton (foreground service deferred)
+- Confirmed fixtures file for hardcoded UserProfile, minimal home screen, last-run indicator deferred
+- Ran full /plan on the Walking Skeleton — 13-phase implementation plan produced (complete, not truncated)
+- Fixed PRD §9 — stripped all entity detail, now points to docs/schema.md as sole source of truth (commit 41df738)
+- Fixed ~/.claude/settings.json — removed invalid inline JSON comments that were breaking all permission allow rules
+
+**In progress:** Nothing — ready for Phase 1 of the Walking Skeleton build.
+
+**Decisions made:**
+- @op-engineering/op-sqlite chosen over expo-sqlite for SQLCipher support; expo-dev-client required
+- expo-secure-store used as Android Keystore abstraction (Keystore-backed EncryptedSharedPreferences)
+- AI calls mocked in tests; EXPO_PUBLIC_ANTHROPIC_API_KEY in .env for live runs
+- Basic expo-audio ducking mode for skeleton; foreground service deferred
+- Prompts stored as TypeScript string exports (not .txt files) to avoid Metro transformer complexity
+- Model names defined in src/ai/models.ts TypeScript constants mirroring architecture.md (markdown not readable at RN runtime) — needs decisions.md entry at Phase 1
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 1 of Walking Skeleton — package installs + Expo Router entry point switch.
+    Specifically:
+      1. Install missing packages: expo-dev-client, expo-secure-store, @op-engineering/op-sqlite,
+         jest-expo, @testing-library/react-native, @types/jest (all via npx expo install except
+         @anthropic-ai/sdk which uses npm install — note in decisions.md)
+      2. Switch package.json "main" from "index.ts" to "expo-router/entry"
+      3. Add ESLint config (eslint-config-expo) — project has no linter configured yet
+      4. Create .env with EXPO_PUBLIC_ANTHROPIC_API_KEY placeholder and confirm .gitignore covers it
+      5. Update app.json plugins (remove expo-sqlite, add op-sqlite config plugin)
+      6. Record model-names decision in docs/decisions.md
+  Watch out for:
+    - ~/.claude/settings.json was fixed (removed invalid JSON comments) — restart Claude Code
+      before next session so the allow rules take effect
+    - @op-engineering/op-sqlite New Architecture compat with RN 0.83.4 must be verified before
+      installing — check peer dependency ceiling
+    - @anthropic-ai/sdk cannot be installed via npx expo install; use npm install and record
+      the exception in docs/decisions.md
+    - ESLint is not yet configured in this project — must be set up before first real code commit

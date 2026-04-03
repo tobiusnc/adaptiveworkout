@@ -92,3 +92,23 @@
 **Alternatives considered:** Always pause on background; return to session select on exit.
 **Reasoning:** Timer continuity matches real workout behavior (phone locked in pocket). Accidental back-button exits are common; confirmation prevents data loss.
 **Revisit if:** Background timer causes battery complaints.
+
+---
+
+## [DECISION] Model names stored as TypeScript constants — not read from markdown at runtime
+Date: 2026-04-03
+Status: Decided
+Context: architecture.md lists the canonical model names, but markdown files are not readable at React Native runtime via Metro.
+Decision: Define model names as TypeScript string constants in src/ai/models.ts, mirroring architecture.md values.
+Rationale: Avoids Metro transformer complexity (no require() for .md files). Constants are type-checked, refactorable, and verifiable at build time.
+Consequences: architecture.md remains the human-readable source; models.ts is the runtime source. They must be kept in sync manually.
+
+---
+
+## [DECISION] @anthropic-ai/sdk installed via npm install (exception to npx expo install rule)
+Date: 2026-04-03
+Status: Decided
+Context: docs/constraints.md requires all packages to be installed via `npx expo install`. However, @anthropic-ai/sdk is a pure JS/TypeScript SDK with no native modules and is not in the Expo package registry.
+Decision: Install @anthropic-ai/sdk via `npm install` only. All packages with native modules continue to use `npx expo install`.
+Rationale: `npx expo install` only resolves packages in Expo's version alignment registry. Pure SDK packages outside that registry install correctly via npm with no version conflict risk.
+Consequences: Exception documented here. Any future pure-JS SDKs without native modules may follow the same pattern with a new decisions.md entry.
