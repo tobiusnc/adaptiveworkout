@@ -149,3 +149,47 @@
     - @anthropic-ai/sdk cannot be installed via npx expo install; use npm install and record
       the exception in docs/decisions.md
     - ESLint is not yet configured in this project — must be set up before first real code commit
+
+---
+
+### 2026-04-03T16:00:00Z
+**Completed this session:**
+- Phase 1 — All packages installed (expo-dev-client, expo-secure-store, @op-engineering/op-sqlite,
+  jest-expo, @testing-library/react-native, @types/jest via npx expo install; @anthropic-ai/sdk
+  via npm install). Entry point switched to expo-router/entry. ESLint configured (eslint-config-expo
+  flat config). .env confirmed. app.json plugins updated (expo-sqlite removed, op-sqlite added).
+  Two decisions.md entries recorded (model names as TS constants; @anthropic-ai/sdk npm exception).
+  .npmrc added with legacy-peer-deps=true for @types/react peer dep mismatch.
+- Phase 2 — src/ai/models.ts created (model name constants). src/types/index.ts created (all 25
+  types/interfaces from schema.md). app/_layout.tsx (Stack navigator). app/index.tsx, 
+  app/session/[id].tsx, app/session/feedback.tsx (screen stubs). root index.ts deleted. All
+  .gitkeep files removed. eslint.config.js updated: added react version setting to fix
+  eslint-plugin-react incompatibility with ESLint 10 API.
+
+**In progress:** None.
+
+**Decisions made:**
+- Model names stored as TypeScript constants in src/ai/models.ts (mirrors architecture.md);
+  markdown not readable at RN runtime — see decisions.md
+- @anthropic-ai/sdk installed via npm install (not npx expo install); pure JS SDK not in Expo
+  registry — see decisions.md
+- eslint-plugin-react 7.37.5 incompatible with ESLint 10 context API; fixed by setting
+  react.version: '19' in eslint.config.js to skip auto-detection
+- Navigation: Stack navigator, routes: index / session/[id] / session/feedback
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 3 — Storage layer.
+    Specifically:
+      1. Create src/storage/StorageService.ts — abstract interface (hide SQLite implementation)
+      2. Create src/storage/OpSqliteStorageService.ts — concrete op-sqlite + SQLCipher implementation
+      3. Encryption key management via expo-secure-store
+      4. Schema migrations pattern (additive only per constraints)
+      5. Stub out at minimum: saveSession, getSession, saveProfile, getProfile
+  Watch out for:
+    - op-sqlite requires expo-dev-client to run (cannot use Expo Go)
+    - Encryption key must be generated once and persisted in expo-secure-store; never regenerate
+    - StorageService interface must be mockable (test-writer will mock it, not the SQLite layer directly)
+    - New Architecture is enabled — verify op-sqlite JSI bridge initialises correctly
