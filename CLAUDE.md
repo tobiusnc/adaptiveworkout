@@ -23,6 +23,8 @@ docs/handoff.md      — previous session state
 
 ## Agent Routing
 Expo/React Native work    → expo-dev agent
+  (components, screens, navigation, device APIs, audio, simulator testing)
+  NOT for: pure TypeScript service/storage/AI files with no RN runtime calls
 AI API work               → ai-layer agent
 Post-build code review    → code-reviewer agent (FRESH session)
 Writing tests             → test-writer agent (FRESH session)

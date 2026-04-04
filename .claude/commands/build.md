@@ -11,3 +11,4 @@ Write testable code:
 If anything is unclear: stop and ask.
 Do not assume. Do not proceed past any ambiguity.
 Do not mark complete until the TypeScript compiler and linter pass.
+When verifying generated code: Grep for specific patterns first. Only read full files if Grep findings require it.

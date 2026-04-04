@@ -32,6 +32,10 @@ Verbose and explicit over clever and concise.
 No console.log in committed code.
 No functions over 50 lines.
 Compiler and linter must pass before any commit.
+Before writing code that calls an unfamiliar library: read its type definitions
+  in node_modules/[package]/src/*.ts first. Never assume sync vs async from docs alone.
+When verifying generated code: use Grep for specific patterns rather than reading
+  entire files. Only read full files if Grep findings require it.
 
 ## Git
 Conventional commit format always.

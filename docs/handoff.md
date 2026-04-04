@@ -193,3 +193,45 @@
     - Encryption key must be generated once and persisted in expo-secure-store; never regenerate
     - StorageService interface must be mockable (test-writer will mock it, not the SQLite layer directly)
     - New Architecture is enabled — verify op-sqlite JSI bridge initialises correctly
+
+---
+
+## 2026-04-03T17:30:00Z
+**Completed this session:**
+- Phase 3 — Storage layer complete (commit ad46c46):
+  - src/storage/StorageError.ts — typed error class with StorageErrorTag discriminated union
+  - src/storage/StorageService.ts — abstract interface, full CRUD for all 6 entities + initialize()
+  - src/storage/OpSqliteStorageService.ts — concrete op-sqlite + SQLCipher implementation
+  - expo-crypto installed; key generation uses getRandomBytesAsync (CSPRNG, not Math.random)
+  - PlanConfig stored as 6 inline columns on plan table (not JSON)
+  - formCues and equipment stored as JSON TEXT
+  - ExercisePhase null handled correctly (SQL NULL ↔ TS null)
+  - All db.execute() calls properly awaited (op-sqlite is async)
+  - Row types cast through unknown intermediate to satisfy strict mode
+  - Compiler and linter both pass clean
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- PlanConfig: inline columns on plan table (verbose/explicit over JSON blob)
+- Error handling: null for not-found, StorageError thrown for failures
+- Async-first: all StorageService methods return Promise<T>; zustand is in-memory source of truth after startup
+- Encryption key: expo-secure-store with AFTER_FIRST_UNLOCK, generated via CSPRNG (expo-crypto)
+- Migrations: CREATE TABLE IF NOT EXISTS only (no formal runner for skeleton)
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 4 — Zustand store + app startup wiring.
+    Specifically:
+      1. Create src/store/index.ts (or src/store/useAppStore.ts) — zustand store
+         with slices for: profile, activePlan, sessions, exercises
+      2. Wire StorageService.initialize() into app/_layout.tsx startup sequence
+      3. Load profile + active plan into zustand on init
+      4. Export typed store hooks for use in screens
+  Watch out for:
+    - StorageService must be instantiated once (singleton pattern in app startup, not in the store itself)
+    - All storage reads at startup are async — _layout.tsx needs a loading state before rendering children
+    - op-sqlite requires expo-dev-client; cannot test on Expo Go
+    - zustand slices should match the StorageService interface shape so mutations write to both store and DB
