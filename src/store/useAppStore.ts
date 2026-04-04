@@ -4,8 +4,9 @@
 // Lifecycle:
 //   1. _layout.tsx creates OpSqliteStorageService and calls store.initialize(service).
 //   2. initialize() opens the DB, loads profile + active plan into the store.
-//   3. Screens call loadSession(id) when the user selects a session — lazy load only.
-//   4. Write-through actions (saveProfile, savePlan, …) are added per phase as needed.
+//   3. HomeScreen calls loadSessions(planId) to populate the session list.
+//   4. Screens call loadSession(id) when the user selects a session — lazy load only.
+//   5. Write-through actions (saveProfile, savePlan, …) are added per phase as needed.
 //
 // Testability:
 //   Inject a mock via useAppStore.setState({ storageService: mockService }) before each test.
@@ -31,6 +32,9 @@ interface AppState {
   profile: UserProfile | null;
   activePlan: Plan | null;
 
+  // ── Home screen session list (loaded after init when activePlan is set) ──────
+  planSessions: Session[];
+
   // ── Active session (lazy — loaded only when user selects a session) ──────────
   currentSession: Session | null;
   currentExercises: Exercise[];
@@ -42,6 +46,10 @@ interface AppActions {
   // Called once from _layout.tsx at startup.
   // Stores the service reference, initializes the DB, and loads startup data.
   initialize: (service: StorageService) => Promise<void>;
+
+  // Called from HomeScreen after init when activePlan is available.
+  // Populates planSessions for the session list.
+  loadSessions: (planId: string) => Promise<void>;
 
   // Called when the user selects a session to execute.
   // Loads the Session record and all its Exercise records into the store.
@@ -62,6 +70,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   initError: null,
   profile: null,
   activePlan: null,
+  planSessions: [],
   currentSession: null,
   currentExercises: [],
 
@@ -77,6 +86,16 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       const message = err instanceof Error ? err.message : String(err);
       set({ isInitializing: false, initError: message });
     }
+  },
+
+  // ── loadSessions ─────────────────────────────────────────────────────────────
+  loadSessions: async (planId: string): Promise<void> => {
+    const { storageService } = get();
+    if (storageService === null) {
+      throw new Error('StorageService is not initialized — call initialize() first.');
+    }
+    const sessions = await storageService.getSessionsByPlan(planId);
+    set({ planSessions: sessions });
   },
 
   // ── loadSession ──────────────────────────────────────────────────────────────

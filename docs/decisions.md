@@ -105,6 +105,36 @@ Consequences: architecture.md remains the human-readable source; models.ts is th
 
 ---
 
+## [DECISION] loadSessions as a Zustand store action, not a direct screen service call
+Date: 2026-04-03
+Status: Decided
+Context: Home screen needs the session list for the active plan. Could call storageService.getSessionsByPlan() directly from the screen, or expose it as a store action.
+Decision: Add loadSessions(planId) to the Zustand store, storing results in planSessions state.
+Rationale: Consistent with the existing loadSession pattern. Keeps screens storage-agnostic and mockable via useAppStore.setState in tests. planSessions may be needed from multiple screens in later phases.
+Consequences: All home screen session list reads go through the store. Direct service calls from screens remain a pattern violation.
+
+---
+
+## [DECISION] Design tokens in src/styles/tokens.ts — skeleton baseline
+Date: 2026-04-03
+Status: Decided
+Context: Phase 5 (home screen) is the first screen with real UI. No design system exists yet.
+Decision: Create src/styles/tokens.ts with colors, spacing, and typography constants. All new screens consume tokens rather than hard-coding values.
+Rationale: Establishes a single place to update when visual design is applied. Prevents hard-coded magic numbers spreading across files from the first screen onward.
+Consequences: Token values are placeholder and will be revised. Screens import from tokens — never define raw color/size values inline.
+
+---
+
+## [DECISION] No-plan redirect uses router.replace, not router.push
+Date: 2026-04-03
+Status: Decided
+Context: When no active plan exists, home screen must redirect to onboarding.
+Decision: Use router.replace('/onboarding') and register onboarding with headerBackVisible: false.
+Rationale: router.push would leave home screen in the stack — pressing back from onboarding would return to the empty home screen, which immediately redirects again (navigation loop). replace removes home from the stack entirely.
+Consequences: From onboarding, back navigation leads to the OS home screen, not app/index. After onboarding completes (future phase), it must push to index rather than relying on back.
+
+---
+
 ## [DECISION] @anthropic-ai/sdk installed via npm install (exception to npx expo install rule)
 Date: 2026-04-03
 Status: Decided
