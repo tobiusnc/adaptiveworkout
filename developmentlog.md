@@ -19,6 +19,38 @@
 
 ---
 
+## 2026-04-04 — Phase 6: Onboarding Screen
+
+**Goal:** Replace the onboarding stub with a real 7-step questionnaire that collects the user profile, generates a plan via the AI layer, persists everything to storage, and navigates to the home screen.
+
+**What was built:**
+
+**`src/ai/prompts/generatePlan.ts`** — Prompt storage decision: React Native's Metro bundler cannot read arbitrary files at runtime, so "local files" (PRD §5.4) must be TypeScript string constants in the bundle. The file exports `GENERATE_PLAN_PROMPT_V1` (placeholder) and `GENERATE_PLAN_PROMPT_VERSION` (integer). The ai-layer agent fills in the real prompt in the next phase. Bumping the version constant triggers the logging requirement in PRD §5.4 automatically — every AI call logs the version alongside token counts.
+
+**`src/ai/generatePlan.ts`** — A typed stub that defines the permanent interface. The function signature, `GeneratePlanError` class, and the full PRD §5.3 call contract (30 000 ms timeout, retry with backoff, token logging, error logging) are documented in comments and will not change when the ai-layer agent replaces the body. The stub returns a hardcoded `GeneratePlanOutput` with a realistic full session (warm-up, 3-exercise main circuit, cooldown, bilateral between-round stretch) so manual testing has value before the real AI call exists. The 800 ms artificial delay lets the loading state be exercised.
+
+**`src/store/useAppStore.ts` — two new actions:**
+
+`saveProfile(profile)` — persists to storage, updates `state.profile`. Clean separation: the onboarding screen builds the profile object; the store owns the write.
+
+`savePlanFromDraft(output)` — the conversion layer between AI output and storage entities. Handles the only non-trivial mapping in Phase 6: `SessionDraft.betweenRoundExercise` is an inline draft in the AI output but must become a separate `Exercise` row (phase: null) in storage, with its generated UUID written back to `Session.betweenRoundExerciseId`. This conversion lives in the store rather than the screen to keep screens storage-agnostic. Store state is updated directly (`set({ activePlan: plan })`) rather than re-running `initialize()` — avoids the `isInitializing` flash and unnecessary DB round-trips since all data is already in memory.
+
+**`app/onboarding.tsx`** — Several design decisions worth noting:
+
+*Discriminated union step types.* `WizardStep = StructuredStep | FreeFormStep` and `StepAnswer = StructuredSingleAnswer | StructuredMultiAnswer | FreeFormAnswer`. TypeScript enforces exhaustive handling at every switch — adding a step type in the future produces compile errors at every un-updated branch rather than silent runtime bugs.
+
+*Flat answer array.* Seven parallel `useState` calls would have required seven handler functions with identical shapes. A single `answers: StepAnswer[]` array with a copy-on-write `replaceAnswer` helper centralises mutation logic.
+
+*Equipment multi-select coexistence.* For steps 1, 3, 4, 5 — selecting an option clears free-form text; typing clears the selected option (strictly mutually exclusive). For step 2 (equipment) — selected options and free-form text coexist, because `equipment` is `string[]` and the user may legitimately want both preset options and a custom item. Free-form is comma-split at profile assembly time.
+
+*Frozen profile for retry.* `Crypto.randomUUID()` is called once when the user presses "Generate my plan." The resulting profile is stored in `frozenProfile` state. The Retry button passes this directly to `runGeneration` — no new UUID is generated, no duplicate profile record is created in SQLite on retry.
+
+*Known latent issue identified:* If `saveProfile` succeeds but `savePlanFromDraft` fails on the first attempt, the Retry will call `saveProfile` again. `OpSqliteStorageService.saveProfile` uses `INSERT` not upsert — this may fail on the duplicate profile ID. Flagged in the handoff for the next session to verify before releasing.
+
+**Outcome:** Phase 6 complete. Compiler and linter clean. The onboarding-to-home path is end-to-end wired with a stub AI call. Phase 7 replaces the stub with a real Anthropic API call.
+
+---
+
 ## 2026-04-03 — Requirements, PRD, and Schema Design
 
 ### Part 1: Requirements and PRD

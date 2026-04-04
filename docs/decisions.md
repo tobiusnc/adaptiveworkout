@@ -135,6 +135,67 @@ Consequences: From onboarding, back navigation leads to the OS home screen, not 
 
 ---
 
+## [DECISION] generatePlan stubbed — ai-layer agent implements real call
+Date: 2026-04-03
+Status: Decided
+Context: Phase 6 requires a generatePlan() call, but the Anthropic API prompt engineering belongs to the ai-layer agent in a dedicated session.
+Decision: generatePlan() is a typed stub returning hardcoded GeneratePlanOutput. Call contract (PRD §5.3 timeout/retry/logging) is documented in comments but not yet implemented.
+Rationale: Unblocks the onboarding screen and establishes the interface contract before the AI implementation. Separates RN screen work (expo-dev) from AI work (ai-layer).
+Consequences: Production plan generation does not work until the ai-layer agent replaces the stub body. GENERATE_PLAN_PROMPT_VERSION must be bumped when the real prompt is written.
+
+---
+
+## [DECISION] Prompts stored as TypeScript string constants, not external files
+Date: 2026-04-03
+Status: Decided
+Context: PRD §5.4 says prompts are stored in "local files" read via loadPrompt(). React Native's Metro bundler cannot access arbitrary filesystem paths at runtime.
+Decision: Store prompt strings as exported TypeScript constants in src/ai/prompts/<functionName>.ts. Version constant in the same file. loadPrompt() is a direct import — no runtime file I/O.
+Rationale: Only option that works in the Metro bundle environment. Constants are type-checked, tree-shakeable, and trivially importable in tests.
+Consequences: "Remote config with local fallback" future path (PRD §5.4) will require a loadPrompt() abstraction that checks a remote source first and falls back to the local constant. Architecture is compatible — function signature can stay the same.
+
+---
+
+## [DECISION] savePlanFromDraft updates store state directly, does not re-run initialize()
+Date: 2026-04-03
+Status: Decided
+Context: After onboarding writes a plan to storage, the store must reflect the new activePlan. Two options: re-run initialize() (re-reads DB) or directly set({ activePlan: plan }) with data already in memory.
+Decision: Direct set() call — no re-run of initialize().
+Rationale: All data is already in memory after the write. Re-running initialize() would briefly set isInitializing: true, causing the layout to render a blank screen. Direct update is atomic, avoids the flash, and is semantically precise.
+Consequences: If savePlanFromDraft is called and the DB write fails partway through, store state and DB may diverge. Callers must handle thrown errors and not navigate on failure.
+
+---
+
+## [DECISION] Natural language plan iteration before acceptance deferred to post-Phase 6
+Date: 2026-04-03
+Status: Decided
+Context: PRD §2.3 describes a natural language conversation after initial plan generation where the user can iterate before accepting. Phase 6 handoff does not include this.
+Decision: Phase 6 onboarding: questionnaire → generatePlan → save → navigate to home. No iteration step.
+Rationale: Iteration requires a chat UI and multiple AI round-trips — a meaningful addition beyond the questionnaire. Not in the walking skeleton scope and not specified in the Phase 6 handoff.
+Consequences: After onboarding, users land on the home screen with the generated plan already active. Plan iteration is available via Plan Chat (a later phase).
+
+---
+
+## [DECISION] PlanContextRecord created at first modification conversation, not at onboarding
+Date: 2026-04-03
+Status: Decided
+Context: PlanContextRecord is AI-maintained (PRD §4.4). No content exists at onboarding time — the AI populates it during modification conversations.
+Decision: No PlanContextRecord row is created during onboarding. The record is created by the ai-layer when the first modifyPlan conversation occurs.
+Rationale: An empty record adds no value. Creation at the moment of first meaningful content (plan modification) is semantically correct and avoids unnecessary DB writes.
+Consequences: getContextRecord(planId) will return null for plans that have never been modified. All callers of getContextRecord must handle the null case.
+
+---
+
+## [DECISION] Multi-table writes use a dedicated atomic StorageService method (transaction pattern)
+Date: 2026-04-04
+Status: Decided
+Context: savePlanFromDraft writes a plan row, N session rows, and M exercise rows via individual saveX() calls. A failure mid-loop leaves orphaned rows behind. On retry, savePlanFromDraft generates new UUIDs so there are no UNIQUE conflicts — but the orphaned rows remain, and getActivePlan (LIMIT 1, no ORDER BY) may return a ghost plan instead of the new one.
+Decision: Any operation that writes to more than one table must be exposed as a single method on StorageService (e.g. savePlanComplete) and implemented with BEGIN / all inserts / COMMIT, with ROLLBACK on any failure. The store or screen assembles all entities in memory first, then calls the atomic method once.
+Alternatives considered: Exposing beginTransaction/commit/rollback primitives on StorageService (too easy to misuse); INSERT OR REPLACE everywhere with frozen UUIDs across retries (doesn't prevent ghost active-plan rows); cleaning up orphaned rows on retry (requires knowing what was written).
+Rationale: A transaction is the only guarantee of atomicity. The dedicated-method pattern keeps transaction management inside the storage layer where it belongs and keeps the store and screen code simple. Callers pass fully assembled entities; they do not manage rollback.
+Consequences: Any future feature that writes to multiple tables (e.g. saving session feedback that also updates plan context) must follow the same pattern. See constraints.md.
+
+---
+
 ## [DECISION] @anthropic-ai/sdk installed via npm install (exception to npx expo install rule)
 Date: 2026-04-03
 Status: Decided

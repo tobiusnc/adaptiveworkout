@@ -485,7 +485,7 @@ export class OpSqliteStorageService implements StorageService {
     const db = this.assertDb();
     try {
       await db.execute(
-        `INSERT INTO user_profile (
+        `INSERT OR REPLACE INTO user_profile (
           id, schema_version, primary_goal, equipment, sessions_per_week,
           target_duration, fitness_level, limitations, additional_context,
           age, biological_sex, weight_kg, height_cm, target_weight_kg,
@@ -607,6 +607,97 @@ export class OpSqliteStorageService implements StorageService {
       );
     } catch (cause) {
       throw new StorageError('Failed to save Plan', 'QUERY_FAILED', cause);
+    }
+  }
+
+  async savePlanComplete(plan: Plan, sessions: Session[], exercises: Exercise[]): Promise<void> {
+    const db = this.assertDb();
+    await db.execute('BEGIN');
+    try {
+      await db.execute(
+        `INSERT INTO plan (
+          id, schema_version, user_id, name, description, is_active,
+          default_work_sec, rest_between_ex_sec, stretch_between_rounds_sec,
+          rest_between_rounds_sec, warmup_delay_between_items_sec,
+          cooldown_delay_between_items_sec, created_at, updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          plan.id,
+          plan.schemaVersion,
+          plan.userId,
+          plan.name,
+          plan.description,
+          plan.isActive ? 1 : 0,
+          plan.config.defaultWorkSec,
+          plan.config.restBetweenExSec,
+          plan.config.stretchBetweenRoundsSec,
+          plan.config.restBetweenRoundsSec,
+          plan.config.warmupDelayBetweenItemsSec,
+          plan.config.cooldownDelayBetweenItemsSec,
+          plan.createdAt,
+          plan.updatedAt,
+        ],
+      );
+
+      for (const session of sessions) {
+        await db.execute(
+          `INSERT INTO session (
+            id, schema_version, plan_id, name, type, order_in_plan, rounds,
+            estimated_duration_minutes, work_sec, rest_between_ex_sec,
+            stretch_between_rounds_sec, rest_between_rounds_sec,
+            warmup_delay_between_items_sec, cooldown_delay_between_items_sec,
+            between_round_exercise_id
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            session.id,
+            session.schemaVersion,
+            session.planId,
+            session.name,
+            session.type,
+            session.orderInPlan,
+            session.rounds,
+            session.estimatedDurationMinutes,
+            session.workSec,
+            session.restBetweenExSec,
+            session.stretchBetweenRoundsSec,
+            session.restBetweenRoundsSec,
+            session.warmupDelayBetweenItemsSec,
+            session.cooldownDelayBetweenItemsSec,
+            session.betweenRoundExerciseId,
+          ],
+        );
+      }
+
+      for (const exercise of exercises) {
+        await db.execute(
+          `INSERT INTO exercise (
+            id, schema_version, session_id, phase, order_num, name, type,
+            duration_sec, reps, weight, equipment, form_cues,
+            youtube_search_query, is_bilateral
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            exercise.id,
+            exercise.schemaVersion,
+            exercise.sessionId,
+            exercise.phase,
+            exercise.order,
+            exercise.name,
+            exercise.type,
+            exercise.durationSec,
+            exercise.reps,
+            exercise.weight,
+            exercise.equipment,
+            JSON.stringify(exercise.formCues),
+            exercise.youtubeSearchQuery,
+            exercise.isBilateral ? 1 : 0,
+          ],
+        );
+      }
+
+      await db.execute('COMMIT');
+    } catch (cause) {
+      try { await db.execute('ROLLBACK'); } catch { /* ignore — DB state unrecoverable */ }
+      throw new StorageError('Failed to save plan (transaction rolled back)', 'QUERY_FAILED', cause);
     }
   }
 

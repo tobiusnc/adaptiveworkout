@@ -274,3 +274,113 @@
     - Sessions for the active plan are NOT in the store yet; fetch via storageService.getSessionsByPlan(activePlan.id) in a useEffect
     - expo-dev-client required; cannot test on Expo Go
     - No data exists in the DB yet (no fixtures); home screen must handle empty/null state gracefully
+
+---
+
+## 2026-04-03T23:00:00Z
+**Completed this session:**
+- Phase 5 — Home screen + onboarding stub + design tokens (commit 41f89ac):
+  - src/styles/tokens.ts — new baseline token file: colors, spacing, typography constants
+  - src/store/useAppStore.ts — added planSessions: Session[] state + loadSessions(planId) action
+  - app/onboarding.tsx — new stub screen; shown automatically when no active plan exists
+  - app/index.tsx — replaced stub entirely: plan header (name + description), FlatList of session cards (name, type, estimated duration, rounds), loading spinner, error state, empty state
+  - app/_layout.tsx — registered onboarding route with headerBackVisible: false
+  - Compiler and linter both pass clean
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- loadSessions added as a Zustand store action (not a direct screen service call) — keeps screens storage-agnostic, consistent with loadSession pattern, mockable in tests
+- Design tokens baseline in src/styles/tokens.ts — placeholder values, expected to be revised when visual design is applied
+- No-plan redirect uses router.replace (not push) — prevents back navigation loop (home → onboarding → back → home → onboarding)
+- loading initial state = true — prevents flash of empty-state ListEmptyComponent before first useEffect fires
+- Session card tap navigates immediately (optimistic); loadSession deferred to session/[id].tsx when that screen is built
+- Last-run indicator: absent for now (deferred per JD)
+- Equipment on session card: absent (equipment lives at Exercise level, not Session level)
+- "Focus description" on card: using session.name per JD (PRD §8 field may need editing)
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 6 — Onboarding screen (app/onboarding.tsx).
+    Specifically:
+      1. Replace the stub with a real onboarding conversation UI
+      2. Guided questionnaire collecting: primaryGoal, equipment, sessionsPerWeek, targetDuration, fitnessLevel, limitations, additionalContext (schema v1.4)
+      3. On completion: call AI layer to generate a plan (GeneratePlanInput → GeneratePlanOutput per schema.md)
+      4. Write plan + sessions + exercises to storage, set as active plan
+      5. Navigate to app/index.tsx (router.replace('/') or router.replace('/(tabs)') — check routing)
+    Watch out for:
+      - UserProfile schema has future-use fields (age, biologicalSex, etc.) — collect only the MVP fields listed above; null the rest
+      - Plan generation is an AI call — ai-layer agent should handle prompt engineering and response parsing
+      - After plan is saved, store.activePlan must be updated (call initialize again or add a setPlan action) so home screen reflects new plan
+      - No multi-step form library is installed; build step-by-step with local state or consider a simple wizard pattern
+      - expo-dev-client required; cannot test on Expo Go
+
+---
+
+## 2026-04-04T00:00:00Z
+**Completed this session:**
+- Phase 6 — Onboarding screen (replaces stub app/onboarding.tsx):
+  - src/ai/prompts/generatePlan.ts — placeholder prompt constant (GENERATE_PLAN_PROMPT_V1) +
+    GENERATE_PLAN_PROMPT_VERSION constant; ai-layer agent fills in real content next phase
+  - src/ai/generatePlan.ts — typed stub for generatePlan(); GeneratePlanError class; full PRD
+    §5.3 call contract (timeout, retry, token logging, error logging) documented in comments;
+    hardcoded GeneratePlanOutput with realistic exercises (warmup, main × 3, cooldown,
+    betweenRoundExercise) so manual testing has value before real AI call exists
+  - src/store/useAppStore.ts — saveProfile(profile) and savePlanFromDraft(output) actions added;
+    savePlanFromDraft converts GeneratePlanOutput drafts to full entities (UUID assignment,
+    timestamps, betweenRoundExercise extracted to separate Exercise row with phase: null);
+    store state updated directly (set({ activePlan: plan })) — initialize() not re-run
+  - app/onboarding.tsx — 7-step linear questionnaire; discriminated union WizardStep type
+    (StructuredStep | FreeFormStep) and StepAnswer type; steps 1–5 structured (option buttons +
+    free-form "Other / add detail" input, mutually exclusive except equipment multi-select);
+    steps 6–7 free-form only; profile assembly maps string options to typed enums; frozenProfile
+    pattern ensures retry reuses same UUID without re-assembling; loading + error + retry states;
+    all styles via design tokens
+  - docs/decisions.md — 5 new entries (generatePlan stub, prompts as TS constants, direct state
+    update in savePlanFromDraft, natural language iteration deferred, PlanContextRecord timing)
+  - Bug fix: expo-dev agent incorrectly used await Crypto.randomUUID() — randomUUID() is
+    synchronous; await removed and misleading comment corrected
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- generatePlan() is a typed stub; ai-layer agent implements real Anthropic call next phase
+- Prompts stored as TypeScript string constants (src/ai/prompts/); Metro cannot read arbitrary
+  files at runtime — TS constants are the only viable "local file" mechanism in React Native
+- savePlanFromDraft updates store state directly (no re-run of initialize()) to avoid
+  isInitializing flash; all data already in memory after the write
+- Natural language plan iteration before acceptance (PRD §2.3) deferred — not in Phase 6
+  handoff scope; available via Plan Chat (later phase)
+- PlanContextRecord created at first modifyPlan conversation, not at onboarding — no content
+  exists at onboarding time; all callers of getContextRecord must handle null return
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 7 — ai-layer agent implements real generatePlan() call.
+    Specifically:
+      1. Replace stub body in src/ai/generatePlan.ts with real Anthropic API call
+      2. Write engineered system prompt in src/ai/prompts/generatePlan.ts
+         (bump GENERATE_PLAN_PROMPT_VERSION to 2 when prompt is written)
+      3. Implement full PRD §5.3 contract: 30 000 ms timeout, one retry with backoff,
+         token logging (model + inputTokens + outputTokens + promptVersion), error logging
+      4. Validate GeneratePlanOutput against schema before returning; retry up to 2× on
+         validation failure (PRD §5.2)
+      5. Use REASONING_MODEL from src/ai/models.ts (never hardcode model string)
+      6. Confirm end-to-end: onboarding → generatePlan → savePlanFromDraft → home screen
+         shows generated plan sessions
+  Watch out for:
+    - @anthropic-ai/sdk was installed via npm install (not npx expo install) — see decisions.md
+    - API key is in .env as EXPO_PUBLIC_ANTHROPIC_API_KEY — accessible at runtime via
+      process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY
+    - GeneratePlanError is the error type callers catch — keep that class, replace the stub body
+    - expo-dev-client required; cannot test on Expo Go
+    - The frozenProfile pattern in onboarding.tsx means the profile is saved once; if
+      savePlanFromDraft fails after saveProfile succeeds on first try, retry will call
+      saveProfile again — the storage layer uses saveProfile (INSERT, not upsert); verify
+      OpSqliteStorageService.saveProfile handles re-insertion gracefully or switch to updateProfile
+      on retry (this is a latent bug worth confirming before releasing)
+

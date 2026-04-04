@@ -5,6 +5,10 @@
 ## Data Layer
 Never modify schema without updating docs/schema.md first.
 AI inputs and outputs must be schema-versioned.
+Multi-table writes must use a transaction (savePlanComplete or equivalent).
+  Never write across multiple tables with individual save calls — partial
+  writes leave orphaned rows and an inconsistent DB on failure or retry.
+  Add a dedicated atomic method to StorageService for each multi-table operation.
 
 ## AI Layer
 Never block UI thread — all AI calls async.
@@ -31,7 +35,9 @@ Verbose and explicit over clever and concise.
 ## Code Quality
 No console.log in committed code.
 No functions over 50 lines.
-Compiler and linter must pass before any commit.
+Compiler, linter, and unit tests must pass before any commit.
+  Unit test command: npx jest --findRelatedTests --passWithNoTests
+  WIP: and checkpoint: commits are exempt from all three checks.
 Before writing code that calls an unfamiliar library: read its type definitions
   in node_modules/[package]/src/*.ts first. Never assume sync vs async from docs alone.
 When verifying generated code: use Grep for specific patterns rather than reading

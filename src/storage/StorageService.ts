@@ -32,6 +32,11 @@ export interface StorageService {
 
   // ── Plan ─────────────────────────────────────────────────────────────────────
 
+  // Atomic write of a complete plan — plan row + all sessions + all exercises —
+  // wrapped in a single SQLite transaction.  If any insert fails the entire
+  // write is rolled back, leaving the DB clean for a retry.
+  savePlanComplete(plan: Plan, sessions: Session[], exercises: Exercise[]): Promise<void>;
+
   savePlan(plan: Plan): Promise<void>;
   getPlan(id: string): Promise<Plan | null>;
 
