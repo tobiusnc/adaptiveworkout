@@ -235,3 +235,42 @@
     - All storage reads at startup are async — _layout.tsx needs a loading state before rendering children
     - op-sqlite requires expo-dev-client; cannot test on Expo Go
     - zustand slices should match the StorageService interface shape so mutations write to both store and DB
+
+---
+
+## 2026-04-03T22:21:24Z
+**Completed this session:**
+- Phase 4 — Zustand store + app startup wiring (commit 8f71755):
+  - src/store/useAppStore.ts — single-file Zustand 5 store with AppState + AppActions interfaces
+  - Store holds: storageService, isInitializing, initError, profile, activePlan, currentSession, currentExercises
+  - initialize(service) — stores service ref, calls service.initialize(), loads profile + active plan; catches errors into initError
+  - loadSession(sessionId) — lazy loads Session + all Exercises for execution engine on demand
+  - clearCurrentSession() — resets currentSession and currentExercises
+  - app/_layout.tsx updated — creates OpSqliteStorageService singleton, calls initialize() in useEffect; renders blank screen during init, error screen on failure, Stack navigator on success
+  - Compiler and linter both pass clean
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- StorageService injected into Zustand store via initialize(service) action — concrete class never imported by store; mockable via useAppStore.setState({ storageService: mockService }) in tests
+- Sessions load lazily (loadSession called per selection); only profile + active plan load at startup
+- currentExercises loaded in full alongside currentSession (execution engine needs all exercises)
+- Blank screen during init (no spinner); revisit if latency is noticeable in practice
+- Error screen is inline JSX in _layout.tsx (no dedicated route); simple message display
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 5 — Home screen (app/index.tsx).
+    Specifically:
+      1. Replace stub app/index.tsx with real home screen
+      2. Display: active plan name + description, list of sessions for the plan (load via storageService.getSessionsByPlan), last-run indicator (deferred — show placeholder)
+      3. Tap session card → navigate to app/session/[id].tsx
+      4. No active plan state: show "No plan yet" message (plan generation deferred to later phase)
+      5. Use useAppStore hooks for profile and activePlan; call storageService directly (via store) for sessions list
+  Watch out for:
+    - app/index.tsx is currently a stub — replace entirely, do not extend
+    - Sessions for the active plan are NOT in the store yet; fetch via storageService.getSessionsByPlan(activePlan.id) in a useEffect
+    - expo-dev-client required; cannot test on Expo Go
+    - No data exists in the DB yet (no fixtures); home screen must handle empty/null state gracefully
