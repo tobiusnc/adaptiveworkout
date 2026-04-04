@@ -31,6 +31,7 @@ import {
 import { generatePlan, GeneratePlanError } from '../src/ai/generatePlan';
 import { useAppStore } from '../src/store/useAppStore';
 import { colors, spacing, typography } from '../src/styles/tokens';
+import { logger } from '../src/utils/logger';
 import type {
   FitnessLevel,
   GeneratePlanInput,
@@ -509,9 +510,14 @@ export default function OnboardingScreen(): React.JSX.Element {
       } catch (err) {
         // Log full error for debugging; show user-friendly message in UI.
         if (err instanceof GeneratePlanError) {
-          console.error('[OnboardingScreen] GeneratePlanError:', err.message, err.cause);
+          logger.error('[OnboardingScreen] GeneratePlanError:', {
+            message: err.message,
+            cause: String(err.cause),
+          });
         } else {
-          console.error('[OnboardingScreen] unexpected error during plan generation:', err);
+          logger.error('[OnboardingScreen] unexpected error during plan generation:', {
+            error: String(err),
+          });
         }
         setErrorText('Plan generation failed. Please check your connection and try again.');
       } finally {

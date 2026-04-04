@@ -13,12 +13,17 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { generatePlan, GeneratePlanError } from '../generatePlan';
+import { logger } from '../../utils/logger';
 import type { GeneratePlanInput } from '../../types/index';
 
 // ── Mock @anthropic-ai/sdk ────────────────────────────────────────────────────
 // jest.mock() is hoisted above imports at runtime, so the import above receives
 // the mocked module. APIError is defined inside the factory so the same class
 // instance is used for both throwing and `instanceof Anthropic.APIError` checks.
+
+jest.mock('../../utils/logger', () => ({
+  logger: { log: jest.fn(), error: jest.fn() },
+}));
 
 jest.mock('@anthropic-ai/sdk', () => {
   class APIError extends Error {
@@ -176,8 +181,6 @@ function makeNoToolResponse() {
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY = 'test-api-key';
-  jest.spyOn(console, 'log').mockImplementation(() => {});
-  jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -235,7 +238,7 @@ describe('generatePlan — token logging', () => {
 
     await generatePlan(FIXTURE_INPUT);
 
-    const logCalls = (console.log as jest.Mock).mock.calls;
+    const logCalls = (logger.log as jest.Mock).mock.calls;
     const tokenLog = logCalls.find(
       (call: unknown[]) =>
         typeof call[1] === 'object' &&
@@ -303,13 +306,13 @@ describe('generatePlan — network retry', () => {
     expect(mockMessagesCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('logs console.error when the API call fails', async () => {
+  it('logs an error when the API call fails', async () => {
     const clientError = new MockAPIError('Bad Request', 400);
     mockMessagesCreate.mockRejectedValueOnce(clientError);
 
     await expect(generatePlan(FIXTURE_INPUT)).rejects.toThrow(GeneratePlanError);
 
-    expect(console.error).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
   });
 });
 

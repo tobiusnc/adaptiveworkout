@@ -25,6 +25,96 @@ import type {
   ExerciseDraft,
 } from '../types/index';
 
+// ── Entity assembly helpers ───────────────────────────────────────────────────
+// Pure functions that build fully-typed entities from AI output drafts.
+// Called by savePlanFromDraft before the storage transaction begins.
+
+function buildExerciseEntity(
+  draft: ExerciseDraft,
+  sessionId: string,
+  schemaVersion: number,
+): Exercise {
+  return {
+    id: Crypto.randomUUID(),
+    schemaVersion,
+    sessionId,
+    phase: draft.phase,
+    order: draft.order,
+    name: draft.name,
+    type: draft.type,
+    durationSec: draft.durationSec,
+    reps: draft.reps,
+    weight: draft.weight,
+    equipment: draft.equipment,
+    formCues: draft.formCues,
+    youtubeSearchQuery: draft.youtubeSearchQuery,
+    isBilateral: draft.isBilateral,
+  };
+}
+
+function assemblePlanEntities(
+  output: GeneratePlanOutput,
+): { plan: Plan; sessions: Session[]; exercises: Exercise[] } {
+  const now = new Date().toISOString();
+  const planId = Crypto.randomUUID();
+
+  const plan: Plan = {
+    id: planId,
+    schemaVersion: output.schemaVersion,
+    userId: null,
+    name: output.plan.name,
+    description: output.plan.description,
+    isActive: true,
+    config: output.plan.config,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const sessions: Session[] = [];
+  const exercises: Exercise[] = [];
+
+  for (const sessionDraft of output.sessions) {
+    const sessionId = Crypto.randomUUID();
+
+    // betweenRoundExercise: inline draft → separate Exercise row (phase: null),
+    // inserted before its parent session so foreign-key ordering is satisfied.
+    let betweenRoundExerciseId: string | null = null;
+    if (sessionDraft.betweenRoundExercise !== null) {
+      const betweenExercise = buildExerciseEntity(
+        sessionDraft.betweenRoundExercise,
+        sessionId,
+        output.schemaVersion,
+      );
+      exercises.push(betweenExercise);
+      betweenRoundExerciseId = betweenExercise.id;
+    }
+
+    sessions.push({
+      id: sessionId,
+      schemaVersion: output.schemaVersion,
+      planId,
+      name: sessionDraft.name,
+      type: sessionDraft.type,
+      orderInPlan: sessionDraft.orderInPlan,
+      rounds: sessionDraft.rounds,
+      estimatedDurationMinutes: sessionDraft.estimatedDurationMinutes,
+      workSec: sessionDraft.workSec,
+      restBetweenExSec: sessionDraft.restBetweenExSec,
+      stretchBetweenRoundsSec: sessionDraft.stretchBetweenRoundsSec,
+      restBetweenRoundsSec: sessionDraft.restBetweenRoundsSec,
+      warmupDelayBetweenItemsSec: sessionDraft.warmupDelayBetweenItemsSec,
+      cooldownDelayBetweenItemsSec: sessionDraft.cooldownDelayBetweenItemsSec,
+      betweenRoundExerciseId,
+    });
+
+    for (const exDraft of sessionDraft.exercises) {
+      exercises.push(buildExerciseEntity(exDraft, sessionId, output.schemaVersion));
+    }
+  }
+
+  return { plan, sessions, exercises };
+}
+
 // ── State shape ───────────────────────────────────────────────────────────────
 
 interface AppState {
@@ -156,97 +246,11 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     if (storageService === null) {
       throw new Error('StorageService not initialized — call initialize() first.');
     }
+    // All UUIDs are generated before any storage call. If the transaction fails
+    // and the caller retries, assemblePlanEntities generates new UUIDs — the
+    // rolled-back rows are gone, so there is no conflict and no orphaned data.
+    const { plan, sessions, exercises } = assemblePlanEntities(output);
 
-    // ── Phase 1: assemble all entities in memory ──────────────────────────────
-    // All UUIDs are generated before any storage call.  If the transaction
-    // fails and the caller retries, new UUIDs are generated — the rolled-back
-    // rows are gone, so there is no conflict and no orphaned data.
-
-    const now = new Date().toISOString();
-    const planId = Crypto.randomUUID();
-
-    const plan: Plan = {
-      id: planId,
-      schemaVersion: output.schemaVersion,
-      userId: null,
-      name: output.plan.name,
-      description: output.plan.description,
-      isActive: true,
-      config: output.plan.config,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const sessions: Session[] = [];
-    const exercises: Exercise[] = [];
-
-    for (const sessionDraft of output.sessions) {
-      const sessionId = Crypto.randomUUID();
-
-      // betweenRoundExercise: inline draft → separate Exercise row (phase: null),
-      // inserted before its parent session so foreign-key ordering is satisfied.
-      let betweenRoundExerciseId: string | null = null;
-      if (sessionDraft.betweenRoundExercise !== null) {
-        const betweenId = Crypto.randomUUID();
-        const src: ExerciseDraft = sessionDraft.betweenRoundExercise;
-        exercises.push({
-          id: betweenId,
-          schemaVersion: output.schemaVersion,
-          sessionId,
-          phase: src.phase,
-          order: src.order,
-          name: src.name,
-          type: src.type,
-          durationSec: src.durationSec,
-          reps: src.reps,
-          weight: src.weight,
-          equipment: src.equipment,
-          formCues: src.formCues,
-          youtubeSearchQuery: src.youtubeSearchQuery,
-          isBilateral: src.isBilateral,
-        });
-        betweenRoundExerciseId = betweenId;
-      }
-
-      sessions.push({
-        id: sessionId,
-        schemaVersion: output.schemaVersion,
-        planId,
-        name: sessionDraft.name,
-        type: sessionDraft.type,
-        orderInPlan: sessionDraft.orderInPlan,
-        rounds: sessionDraft.rounds,
-        estimatedDurationMinutes: sessionDraft.estimatedDurationMinutes,
-        workSec: sessionDraft.workSec,
-        restBetweenExSec: sessionDraft.restBetweenExSec,
-        stretchBetweenRoundsSec: sessionDraft.stretchBetweenRoundsSec,
-        restBetweenRoundsSec: sessionDraft.restBetweenRoundsSec,
-        warmupDelayBetweenItemsSec: sessionDraft.warmupDelayBetweenItemsSec,
-        cooldownDelayBetweenItemsSec: sessionDraft.cooldownDelayBetweenItemsSec,
-        betweenRoundExerciseId,
-      });
-
-      for (const exDraft of sessionDraft.exercises) {
-        exercises.push({
-          id: Crypto.randomUUID(),
-          schemaVersion: output.schemaVersion,
-          sessionId,
-          phase: exDraft.phase,
-          order: exDraft.order,
-          name: exDraft.name,
-          type: exDraft.type,
-          durationSec: exDraft.durationSec,
-          reps: exDraft.reps,
-          weight: exDraft.weight,
-          equipment: exDraft.equipment,
-          formCues: exDraft.formCues,
-          youtubeSearchQuery: exDraft.youtubeSearchQuery,
-          isBilateral: exDraft.isBilateral,
-        });
-      }
-    }
-
-    // ── Phase 2: write atomically ─────────────────────────────────────────────
     // savePlanComplete wraps all inserts in a single SQLite transaction.
     // Any failure rolls back everything — DB is clean for a retry.
     await storageService.savePlanComplete(plan, sessions, exercises);

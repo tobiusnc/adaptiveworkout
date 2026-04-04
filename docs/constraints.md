@@ -34,7 +34,8 @@ Verbose and explicit over clever and concise.
 
 ## Code Quality
 No console.log in committed code.
-No functions over 50 lines.
+Prefer functions under 50 lines. Over 50 is acceptable if the function is
+  well-bounded (single clear responsibility) and readable without extraction.
 Compiler, linter, and unit tests must pass before any commit.
   Unit test command: npx jest --findRelatedTests --passWithNoTests
   WIP: and checkpoint: commits are exempt from all three checks.

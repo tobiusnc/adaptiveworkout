@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 import type { GeneratePlanInput, GeneratePlanOutput } from '../types/index';
 import { REASONING_MODEL } from './models';
+import { logger } from '../utils/logger';
 import {
   GENERATE_PLAN_PROMPT_V2,
   GENERATE_PLAN_PROMPT_VERSION,
@@ -365,7 +366,7 @@ async function callWithNetworkRetry(
     return await callAnthropic(client, messages);
   } catch (error: unknown) {
     if (isNetworkRetryable(error)) {
-      console.error('[generatePlan] network error, retrying after backoff:', {
+      logger.error('[generatePlan] network error, retrying after backoff:', {
         message: error instanceof Error ? error.message : String(error),
         context: 'network_retry',
       });
@@ -376,10 +377,112 @@ async function callWithNetworkRetry(
   }
 }
 
+/**
+ * Attempt one API call, log token usage, and throw GeneratePlanError on failure.
+ */
+async function executeApiAttempt(
+  client: Anthropic,
+  messages: Anthropic.MessageParam[],
+  attempt: number,
+): Promise<Anthropic.Message> {
+  let response: Anthropic.Message;
+  try {
+    response = await callWithNetworkRetry(client, messages);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.error('[generatePlan] error:', { message: msg, context: 'api_call_failed', attempt });
+    throw new GeneratePlanError(`API call failed: ${msg}`, error);
+  }
+  // Token logging (PRD §5.3 item 5)
+  logger.log('[generatePlan] tokens:', {
+    model: REASONING_MODEL,
+    promptVersion: GENERATE_PLAN_PROMPT_VERSION,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  });
+  return response;
+}
+
+/**
+ * Build the two conversation messages that ask the model to correct a
+ * validation failure: [assistant tool-use, user tool_result with error].
+ */
+function buildValidationRetryMessages(
+  response: Anthropic.Message,
+  validationErrorStr: string,
+): Anthropic.MessageParam[] {
+  const toolUseBlock = response.content.find((b) => b.type === 'tool_use');
+  const toolUseId =
+    toolUseBlock && 'id' in toolUseBlock ? (toolUseBlock as { id: string }).id : 'unknown';
+  return [
+    { role: 'assistant', content: response.content },
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: toolUseId,
+          is_error: true,
+          content: `Schema validation failed:\n${validationErrorStr}\n\nPlease fix these issues and call submit_plan again.`,
+        },
+      ],
+    },
+  ];
+}
+
+/**
+ * Run the validation-retry loop: up to MAX_VALIDATION_RETRIES + 1 API calls,
+ * returning the first valid GeneratePlanOutput.
+ */
+async function runPlanLoop(
+  client: Anthropic,
+  messages: Anthropic.MessageParam[],
+): Promise<GeneratePlanOutput> {
+  for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
+    const response = await executeApiAttempt(client, messages, attempt);
+
+    let rawArgs: unknown;
+    try {
+      rawArgs = extractToolCallArgs(response);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.error('[generatePlan] error:', { message: msg, context: 'tool_extraction_failed', attempt });
+      if (attempt < MAX_VALIDATION_RETRIES) {
+        messages.push({ role: 'assistant', content: response.content });
+        continue;
+      }
+      throw new GeneratePlanError(`Tool extraction failed: ${msg}`, error);
+    }
+
+    const parseResult = GeneratePlanOutputSchema.safeParse(rawArgs);
+    if (parseResult.success) {
+      logger.log('[generatePlan] validation passed, returning plan');
+      return parseResult.data as GeneratePlanOutput;
+    }
+
+    const validationErrorStr = parseResult.error.issues
+      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
+      .join('\n');
+    logger.error('[generatePlan] error:', {
+      message: 'Zod validation failed', context: 'validation_failed', attempt, errors: validationErrorStr,
+    });
+
+    if (attempt < MAX_VALIDATION_RETRIES) {
+      messages.push(...buildValidationRetryMessages(response, validationErrorStr));
+      continue;
+    }
+    throw new GeneratePlanError(
+      `Validation failed after ${MAX_VALIDATION_RETRIES + 1} attempts:\n${validationErrorStr}`,
+    );
+  }
+  // Unreachable — TypeScript requires a return path after the loop.
+  throw new GeneratePlanError('Unexpected: exited retry loop without result');
+}
+
 // ── generatePlan ──────────────────────────────────────────────────────────────
 
 export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePlanOutput> {
-  console.log('[generatePlan] starting:', {
+  logger.log('[generatePlan] starting:', {
     model: REASONING_MODEL,
     promptVersion: GENERATE_PLAN_PROMPT_VERSION,
     schemaVersion: input.schemaVersion,
@@ -388,115 +491,13 @@ export async function generatePlan(input: GeneratePlanInput): Promise<GeneratePl
   const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
   if (!apiKey) {
     const msg = 'EXPO_PUBLIC_ANTHROPIC_API_KEY is not set';
-    console.error('[generatePlan] error:', { message: msg, context: 'missing_api_key' });
+    logger.error('[generatePlan] error:', { message: msg, context: 'missing_api_key' });
     throw new GeneratePlanError(msg);
   }
 
   const client = new Anthropic({ apiKey });
-
-  // Build the conversation messages. On validation retries, we append
-  // clarifying messages so the model can correct its output.
   const messages: Anthropic.MessageParam[] = [
     { role: 'user', content: buildUserMessage(input) },
   ];
-
-  for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
-    let response: Anthropic.Message;
-    try {
-      response = await callWithNetworkRetry(client, messages);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error('[generatePlan] error:', {
-        message: msg,
-        context: 'api_call_failed',
-        attempt,
-      });
-      throw new GeneratePlanError(`API call failed: ${msg}`, error);
-    }
-
-    // Token logging (PRD §5.3 item 5)
-    console.log('[generatePlan] tokens:', {
-      model: REASONING_MODEL,
-      promptVersion: GENERATE_PLAN_PROMPT_VERSION,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-    });
-
-    // Extract tool call arguments
-    let rawArgs: unknown;
-    try {
-      rawArgs = extractToolCallArgs(response);
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error('[generatePlan] error:', {
-        message: msg,
-        context: 'tool_extraction_failed',
-        attempt,
-      });
-      // If this is not the last attempt, we can retry by telling the model
-      // to use the tool.
-      if (attempt < MAX_VALIDATION_RETRIES) {
-        // Append assistant response so conversation stays well-formed
-        messages.push({
-          role: 'assistant',
-          content: response.content,
-        });
-        continue;
-      }
-      throw new GeneratePlanError(`Tool extraction failed: ${msg}`, error);
-    }
-
-    // Zod validation
-    const parseResult = GeneratePlanOutputSchema.safeParse(rawArgs);
-    if (parseResult.success) {
-      console.log('[generatePlan] validation passed, returning plan');
-      return parseResult.data as GeneratePlanOutput;
-    }
-
-    // Validation failed
-    const validationErrorStr = parseResult.error.issues
-      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n');
-
-    console.error('[generatePlan] error:', {
-      message: 'Zod validation failed',
-      context: 'validation_failed',
-      attempt,
-      errors: validationErrorStr,
-    });
-
-    if (attempt < MAX_VALIDATION_RETRIES) {
-      // Append the assistant's tool-use response so the conversation is well-formed
-      // for the next turn.
-      messages.push({
-        role: 'assistant',
-        content: response.content,
-      });
-      // For tool_use responses, we need a tool_result message before user can speak.
-      // Extract the tool_use block id from the response content.
-      const toolUseBlock = response.content.find((b) => b.type === 'tool_use');
-      const toolUseId =
-        toolUseBlock && 'id' in toolUseBlock ? (toolUseBlock as { id: string }).id : 'unknown';
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: toolUseId,
-            is_error: true,
-            content: `Schema validation failed:\n${validationErrorStr}\n\nPlease fix these issues and call submit_plan again.`,
-          },
-        ],
-      });
-      continue;
-    }
-
-    // All retries exhausted
-    throw new GeneratePlanError(
-      `Validation failed after ${MAX_VALIDATION_RETRIES + 1} attempts:\n${validationErrorStr}`,
-    );
-  }
-
-  // This should be unreachable, but TypeScript needs it.
-  throw new GeneratePlanError('Unexpected: exited retry loop without result');
+  return runPlanLoop(client, messages);
 }
