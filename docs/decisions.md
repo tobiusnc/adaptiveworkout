@@ -203,3 +203,27 @@ Context: docs/constraints.md requires all packages to be installed via `npx expo
 Decision: Install @anthropic-ai/sdk via `npm install` only. All packages with native modules continue to use `npx expo install`.
 Rationale: `npx expo install` only resolves packages in Expo's version alignment registry. Pure SDK packages outside that registry install correctly via npm with no version conflict risk.
 Consequences: Exception documented here. Any future pure-JS SDKs without native modules may follow the same pattern with a new decisions.md entry.
+
+---
+
+### 2026-04-04 — Zod for AI output validation (generatePlan)
+**Decision:** Use Zod for runtime validation of GeneratePlanOutput from the Anthropic API.
+**Alternatives considered:** Hand-written structural validator (zero deps, verbose).
+**Reasoning:** Zod is MIT licensed (no copyleft obligation), concise schema definition, readable error messages fed back to the model on retry.
+**Implications:** Zod added as a dependency via `npm install` (pure JS, no native modules — same pattern as @anthropic-ai/sdk).
+
+---
+
+### 2026-04-04 — Tool use for generatePlan structured output
+**Decision:** Use Anthropic SDK tool use (`tool_choice: { type: 'tool', name: 'submit_plan' }`) to force structured JSON output from the model.
+**Alternatives considered:** Raw JSON.parse on response text with JSON instruction in system prompt.
+**Reasoning:** Tool use guarantees a structured response shape at the API level, eliminating the need to handle malformed JSON or prose contamination.
+**Implications:** Validation retry uses `tool_result` with `is_error: true` — the correct multi-turn pattern for tool use conversations.
+
+---
+
+### 2026-04-04 — Extended thinking deferred for generatePlan
+**Decision:** generatePlan uses standard completion (no extended thinking / budget_tokens).
+**Alternatives considered:** Enable extended thinking to improve plan quality.
+**Reasoning:** Not necessary for initial implementation; latency cost is non-trivial on first run. Can be enabled later if plan quality is insufficient.
+**Implications:** None — adding extended thinking later is additive, no breaking change.

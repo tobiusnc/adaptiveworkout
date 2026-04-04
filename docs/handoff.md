@@ -384,3 +384,61 @@
       OpSqliteStorageService.saveProfile handles re-insertion gracefully or switch to updateProfile
       on retry (this is a latent bug worth confirming before releasing)
 
+
+---
+
+## 2026-04-04T15:27:31Z
+**Completed this session:**
+- Phase 7 — real generatePlan() Anthropic API call (commit e37f02f):
+  - src/ai/generatePlan.ts — stub replaced with production implementation:
+    tool use via submit_plan tool (tool_choice forced), AbortController 30s timeout,
+    one network retry with 2s backoff on timeout/5xx, Zod validation with up to 2
+    validation retries using tool_result / is_error: true conversation turns,
+    token logging and error logging per PRD §5.3
+  - src/ai/prompts/generatePlan.ts — GENERATE_PLAN_PROMPT_V2 written (version bumped
+    to 2); role definition, full output schema reference, 15 hard constraints, worked
+    example, programming guidelines; V1 retained
+  - zod installed via npm install (MIT license; pure JS, no native modules)
+  - Bug fix: removed duplicate user message in validation retry loop that would have
+    caused consecutive user-role messages (API rejection)
+  - Bug fix: removed dead lastValidationError variable (linter warning after retry
+    loop restructure)
+- New slash commands:
+  - .claude/commands/wrap.md — pre-handoff quality gate: completeness check,
+    coverage, token efficiency recommendations
+  - .claude/commands/unit-tests.md — reads last handoff to identify testable files,
+    generates unit tests in a fresh session; no file path argument required
+  - .claude/commands/handoff.md — coverage step removed (moved to /wrap)
+- docs/decisions.md — 3 new entries: Zod, tool use, extended thinking deferred
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Tool use (not raw JSON parse) for structured output — forces schema compliance at API level
+- Zod for validation — MIT license, safe for closed-source; installed via npm install
+- No extended thinking for generatePlan — deferred; additive when needed
+- /wrap as pre-handoff quality gate; coverage check moved out of /handoff
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Run /unit-tests in a fresh session to generate unit tests for
+    src/ai/generatePlan.ts (Phase 7 has no tests yet; the /unit-tests command
+    reads the handoff and generates targeted tests automatically).
+  Then: Phase 8 — Session execution screen (app/session/[id].tsx).
+    Specifically:
+      1. Create app/session/[id].tsx — session execution screen
+      2. On mount: call store.loadSession(id) to load Session + all Exercises
+      3. Build the step sequence from the session object (PRD §6.1-6.2):
+         warmup steps → main circuit × rounds (with between-round stretch/rest) → cooldown
+      4. Display current step: exercise name, phase, countdown timer or rep display
+      5. Navigation: next step button (manual advance); auto-advance after timed steps
+      6. End session: navigate to post-session feedback stub (deferred — just navigate back for now)
+    Watch out for:
+      - Step sequence must be constructed before execution begins (PRD §6.2 — not dynamic)
+      - isBilateral exercises split into two steps: Left → Right; durationSec is per-side
+      - between-round rest skipped if restBetweenRoundsSec < 5 (PRD §6.1)
+      - expo-dev-client required; cannot test on Expo Go
+      - No audio yet (TTS deferred to later phase) — visual-only execution for now
+      - loadSession is already in the store (Phase 4); call it, don't re-implement it

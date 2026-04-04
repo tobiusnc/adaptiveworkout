@@ -10,6 +10,7 @@
 //   - OpSqliteStorageService is never imported — all storage interaction is through
 //     the StorageService interface.
 
+import * as ExpoCrypto from 'expo-crypto';
 import { useAppStore } from '../useAppStore';
 
 import type { StorageService } from '../../storage/StorageService';
@@ -23,16 +24,16 @@ import type {
 
 // ── Mock expo-crypto ───────────────────────────────────────────────────────────
 // randomUUID is a native API; mock it so tests control UUID values and run
-// without a device runtime.
+// without a device runtime. jest.mock() is hoisted, so the import above
+// receives the mocked module.
 
 jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(),
 }));
 
-// Grab a typed reference after mocking so individual tests can configure
-// return values with mockReturnValueOnce.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const mockRandomUUID = (require('expo-crypto') as { randomUUID: jest.Mock }).randomUUID;
+// jest.mocked() gives a typed reference to the mock so individual tests can
+// configure return values with mockReturnValueOnce.
+const mockRandomUUID = jest.mocked(ExpoCrypto.randomUUID);
 
 // ── Store reset helpers ────────────────────────────────────────────────────────
 
@@ -427,5 +428,127 @@ describe('loadSessions', () => {
     await expect(
       useAppStore.getState().loadSessions('plan-uuid'),
     ).rejects.toThrow('StorageService is not initialized');
+  });
+});
+
+// ── loadSession ───────────────────────────────────────────────────────────────
+
+describe('loadSession', () => {
+  const FIXTURE_SESSION: Session = {
+    id:                        'session-abc',
+    schemaVersion:             1,
+    planId:                    'plan-uuid',
+    name:                      'Pull Day',
+    type:                      'resistance',
+    orderInPlan:               2,
+    rounds:                    3,
+    estimatedDurationMinutes:  40,
+    workSec:                   40,
+    restBetweenExSec:          15,
+    stretchBetweenRoundsSec:   30,
+    restBetweenRoundsSec:      60,
+    warmupDelayBetweenItemsSec: 5,
+    cooldownDelayBetweenItemsSec: 5,
+    betweenRoundExerciseId:    null,
+  };
+
+  const FIXTURE_EXERCISES: Exercise[] = [
+    {
+      id:                 'ex-1',
+      schemaVersion:      1,
+      sessionId:          'session-abc',
+      phase:              'main',
+      order:              1,
+      name:               'Pull-up',
+      type:               'rep',
+      durationSec:        null,
+      reps:               8,
+      weight:             null,
+      equipment:          'pull-up bar',
+      formCues:           ['dead hang start'],
+      youtubeSearchQuery: null,
+      isBilateral:        false,
+    },
+  ];
+
+  it('loads session and exercises into store state', async () => {
+    const mockService = buildMockService();
+    mockService.getSession.mockResolvedValue(FIXTURE_SESSION);
+    mockService.getExercisesBySession.mockResolvedValue(FIXTURE_EXERCISES);
+    useAppStore.setState({ storageService: mockService });
+
+    await useAppStore.getState().loadSession('session-abc');
+
+    expect(mockService.getSession).toHaveBeenCalledWith('session-abc');
+    expect(mockService.getExercisesBySession).toHaveBeenCalledWith('session-abc');
+    const state = useAppStore.getState();
+    expect(state.currentSession).toEqual(FIXTURE_SESSION);
+    expect(state.currentExercises).toEqual(FIXTURE_EXERCISES);
+  });
+
+  it('throws when the session is not found', async () => {
+    const mockService = buildMockService();
+    mockService.getSession.mockResolvedValue(null);
+    useAppStore.setState({ storageService: mockService });
+
+    await expect(
+      useAppStore.getState().loadSession('session-missing'),
+    ).rejects.toThrow('Session not found: session-missing');
+  });
+
+  it('throws when storageService is null', async () => {
+    await expect(
+      useAppStore.getState().loadSession('session-abc'),
+    ).rejects.toThrow('StorageService is not initialized');
+  });
+});
+
+// ── clearCurrentSession ───────────────────────────────────────────────────────
+
+describe('clearCurrentSession', () => {
+  it('resets currentSession and currentExercises to null / empty', () => {
+    useAppStore.setState({
+      currentSession: {
+        id:                        'session-xyz',
+        schemaVersion:             1,
+        planId:                    'plan-uuid',
+        name:                      'Active Session',
+        type:                      'resistance',
+        orderInPlan:               1,
+        rounds:                    2,
+        estimatedDurationMinutes:  30,
+        workSec:                   40,
+        restBetweenExSec:          15,
+        stretchBetweenRoundsSec:   30,
+        restBetweenRoundsSec:      60,
+        warmupDelayBetweenItemsSec: 5,
+        cooldownDelayBetweenItemsSec: 5,
+        betweenRoundExerciseId:    null,
+      },
+      currentExercises: [
+        {
+          id:                 'ex-z',
+          schemaVersion:      1,
+          sessionId:          'session-xyz',
+          phase:              'main',
+          order:              1,
+          name:               'Squat',
+          type:               'rep',
+          durationSec:        null,
+          reps:               12,
+          weight:             null,
+          equipment:          'bodyweight',
+          formCues:           [],
+          youtubeSearchQuery: null,
+          isBilateral:        false,
+        },
+      ],
+    });
+
+    useAppStore.getState().clearCurrentSession();
+
+    const state = useAppStore.getState();
+    expect(state.currentSession).toBeNull();
+    expect(state.currentExercises).toEqual([]);
   });
 });
