@@ -38,6 +38,7 @@ import {
   HOLD_BEFORE_STEP_KINDS,
 } from '../../src/session/buildStepSequence';
 import type { ExecutionStep, ExecutionStepKind } from '../../src/session/buildStepSequence';
+import { useTTS } from '../../src/session/useTTS';
 
 // ─── Execution state machine ──────────────────────────────────────────────────
 //
@@ -99,6 +100,9 @@ export default function SessionScreen(): React.JSX.Element {
   const currentSession   = useAppStore((s) => s.currentSession);
   const currentExercises = useAppStore((s) => s.currentExercises);
 
+  // ── TTS hook ───────────────────────────────────────────────────────────────
+  const { announceStep, announceDone, stopSpeech, announceCountdown } = useTTS();
+
   // ── Screen-level state ─────────────────────────────────────────────────────
   const [screenState,     setScreenState]     = useState<ScreenState>('LOADING');
   const [loadError,       setLoadError]       = useState<string | null>(null);
@@ -149,12 +153,15 @@ export default function SessionScreen(): React.JSX.Element {
   // Handles: timer cleanup, seconds initialization, state machine transition.
   const advanceToStep = useCallback(
     (index: number, allSteps: ExecutionStep[]): void => {
+      // Cancel any in-flight speech before transitioning to the next step.
+      stopSpeech();
       stopTimer();
 
       if (index >= allSteps.length) {
         // Past the end — session complete.
         setExecState('DONE');
         setStepIndex(allSteps.length); // sentinel: one past end
+        announceDone();
         return;
       }
 
@@ -169,8 +176,11 @@ export default function SessionScreen(): React.JSX.Element {
       } else {
         setSecondsLeft(0);
       }
+
+      // Announce the step that was just entered.
+      announceStep(index, allSteps);
     },
-    [stopTimer],
+    [stopTimer, stopSpeech, announceDone, announceStep],
   );
 
   // ── Load session on mount ──────────────────────────────────────────────────
@@ -264,6 +274,16 @@ export default function SessionScreen(): React.JSX.Element {
   // The user taps "Finish" to return home. Post-session feedback (Phase 9)
   // will replace this screen.
 
+  // ── 3-2-1 countdown TTS ───────────────────────────────────────────────────
+  // Fires for both RUNNING (hold-before-step timed intervals after "Go") and
+  // AUTO (rest/delay auto-advance timers). announceCountdown guards internally
+  // so only secondsLeft === 3, 2, 1 trigger speech.
+  useEffect(() => {
+    if ((execState === 'RUNNING' || execState === 'AUTO') && secondsLeft >= 1 && secondsLeft <= 3) {
+      announceCountdown(secondsLeft);
+    }
+  }, [secondsLeft, execState, announceCountdown]);
+
   // ─── Event handlers ────────────────────────────────────────────────────────
 
   // User taps "Go" — transitions HOLD → RUNNING.
@@ -289,7 +309,8 @@ export default function SessionScreen(): React.JSX.Element {
     }
     stopTimer();
     setExecState('PAUSED');
-  }, [execState, stopTimer]);
+    stopSpeech();
+  }, [execState, stopTimer, stopSpeech]);
 
   // User taps "Resume" — restarts from the frozen secondsLeft.
   const handleResume = useCallback((): void => {
@@ -305,7 +326,9 @@ export default function SessionScreen(): React.JSX.Element {
       ? 'AUTO'
       : 'RUNNING';
     setExecState(resumeState);
-  }, [execState, steps, stepIndex]);
+    // Re-announce the current step so the user knows what they're resuming.
+    announceStep(stepIndex, steps);
+  }, [execState, steps, stepIndex, announceStep]);
 
   // User taps "Skip" — ends current step, begins next.
   const handleSkip = useCallback((): void => {

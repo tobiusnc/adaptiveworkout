@@ -65,3 +65,17 @@ Fix any type errors.
 STEP 5 — REPORT
 List each test file created, the behaviors covered, and any skipped assertions
 with the reason.
+
+STEP 6 — CLOSE SESSION
+Run /commit, then /handoff.
+
+The handoff entry must include:
+  - Each test file created and the behavior count
+  - Any source exports added (minimal-export changes)
+  - Any skipped assertions and why
+
+"Next session" block must say:
+  First task: /review in a fresh session
+  (If review was already done this cycle, say so and name the next build task.)
+
+Do not edit the previous session's handoff entry. Write a new one.

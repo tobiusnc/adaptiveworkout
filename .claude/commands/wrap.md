@@ -26,6 +26,7 @@ usage next session. Look for:
   - The same file read more than once
   - Agent output re-verified by re-reading generated files (tsc passing + spot
     grep is sufficient; full re-read is not)
+  - PRD or schema reads that pulled in sections already summarized in the handoff's "Watch out for" block
   - PRD or schema reads that pulled in sections not relevant to the task
 
 Reference specific examples from this session. Skip generic advice.
@@ -44,3 +45,26 @@ Common targets:
 If no toolkit changes are warranted, state why and move on.
 
 When all four steps are done, say: "Ready for /handoff."
+
+STEP 5 — POST-BUILD SEQUENCE REMINDER
+After /handoff completes, print this checklist verbatim so JD has the full
+sequence in front of him before closing the session:
+
+  Post-build sequence:
+  ┌─ This session (now complete) ──────────────────────────┐
+  │  /wrap → /commit → /handoff                            │
+  └────────────────────────────────────────────────────────┘
+  ┌─ Fresh session — unit tests ───────────────────────────┐
+  │  /unit-tests → /commit → /handoff                      │
+  └────────────────────────────────────────────────────────┘
+  ┌─ Fresh session — code review ──────────────────────────┐
+  │  /review → fix findings → /commit → /handoff           │
+  └────────────────────────────────────────────────────────┘
+  ┌─ Next build session ───────────────────────────────────┐
+  │  /start-session → /proceed                             │
+  └────────────────────────────────────────────────────────┘
+
+  Rules:
+  - /commit always before /handoff — code is the source of truth
+  - Never edit old handoff entries — write a new entry each session
+  - Each session ends with /commit → /handoff, no exceptions
