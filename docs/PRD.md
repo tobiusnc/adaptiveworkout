@@ -354,7 +354,7 @@ generated dynamically during execution.
 | `warmup-delay` | 5-second automatic pause between warm-up items |
 | `work` | Work interval — timed or rep-based |
 | `rest` | Rest interval between work sets |
-| `stretch` | Between-round stretch (left side and right side are separate steps if bilateral) |
+| `stretch` | Between-round stretch |
 | `between` | Rest interval between rounds |
 | `cooldown-work` | Cooldown stretch — timed |
 | `cooldown-delay` | Short automatic pause between cooldown items |
@@ -363,6 +363,14 @@ generated dynamically during execution.
 exercise and per session. There are no runtime constants. The execution runtime reads
 durations from the session object only.
 
+**Bilateral exercises:** All exercise phases (warmup, main, cooldown, between-round
+stretch) treat bilateral exercises identically:
+- **Timed bilateral:** Two consecutive hold-before-step steps — Left, then Right —
+  with no rest or delay between sides. `durationSec` is per-side. A normal rest
+  follows after the Right side completes (same as any non-bilateral exercise).
+- **Rep-based bilateral:** A single step. `reps` is per-side; display as
+  "N reps each side". No split into Left/Right steps.
+
 ### 6.3 Hold-Before-Step Pattern
 
 All timed steps (`warmup-work`, `work`, `stretch`, `cooldown-work`) hold for user
@@ -370,6 +378,10 @@ confirmation before the interval begins. The runtime loads the step, displays th
 exercise name and form cues, plays the TTS announcement, and shows a "Go" button.
 The interval timer does not start until the user taps "Go." All other step types
 advance automatically.
+
+For bilateral timed exercises, the Left step and the Right step each enter
+hold-before-step independently. After Left completes, Right immediately enters
+hold state — no intermediate rest or delay.
 
 **Auto-start on session select:** There is no separate "Start Session" button.
 Selecting a session begins execution immediately at the first step.

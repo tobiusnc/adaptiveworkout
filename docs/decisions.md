@@ -227,3 +227,19 @@ Consequences: Exception documented here. Any future pure-JS SDKs without native 
 **Alternatives considered:** Enable extended thinking to improve plan quality.
 **Reasoning:** Not necessary for initial implementation; latency cost is non-trivial on first run. Can be enabled later if plan quality is insufficient.
 **Implications:** None — adding extended thinking later is additive, no breaking change.
+
+---
+
+### 2026-04-05 — Bilateral exercise execution model
+**Decision:** Bilateral timed exercises produce two consecutive hold-before-step
+steps (Left then Right) with no rest or delay between sides. Bilateral rep exercises
+produce a single step with reps displayed as "N reps each side". Both rules apply
+identically to all exercise phases (warmup, main, cooldown, between-round stretch).
+**Alternatives considered:** Original implementation split bilateral into Left + delay/rest + Right.
+**Reasoning:** For timed exercises, timers start paused (HOLD state), so no delay is
+needed — the user controls pacing by tapping Go. For rep exercises, splitting into
+two steps adds unnecessary friction for exercises like single-leg calf raises where
+"10 each leg" is natural and self-managed.
+**Implications:** schema.md updated: reps is per-side for bilateral exercises.
+PRD §6.2 and §6.3 updated. All four exercise phases use identical bilateral logic.
+**Revisit if:** User feedback indicates confusion about side-switching for rep exercises.

@@ -8,6 +8,7 @@ Include:
   src/store/*.ts        — Zustand store actions with conditional logic
   src/storage/*.ts      — Storage service methods (only if they contain pure logic;
                           skip if the method is a thin SQL wrapper with no branching)
+  src/session/*.ts      — Pure session logic extracted from screen files (e.g. buildStepSequence)
 
 Exclude:
   app/**                — screens (UI, not unit-testable here)
@@ -15,6 +16,13 @@ Exclude:
   src/styles/**         — token constants
   src/ai/prompts/**     — string constants
   docs/**               — documentation
+
+Extraction rule:
+  If a screen file (app/**) contains a pure function with no React/RN/expo-router
+  dependencies, it must be extracted to src/<domain>/<function>.ts before writing
+  tests. Do NOT import screen files in tests — the mocks required to do so hide
+  real coverage gaps and inflate test complexity. Extract first, then test the
+  extracted module directly.
 
 For each included file, read it. Then decide: does it have at least two distinct
 behavioral paths (success, failure, retry, edge case)? If not, skip it.

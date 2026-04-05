@@ -30,4 +30,17 @@ usage next session. Look for:
 
 Reference specific examples from this session. Skip generic advice.
 
-When all three steps are done, say: "Ready for /handoff."
+STEP 4 — ENCODE LESSONS
+For each pattern identified in STEP 3: decide if it should be encoded in a
+toolkit file so it does not recur. Apply any changes now (before /handoff).
+
+Common targets:
+  - handoff.md template  — add a field that forces authors to specify the info
+  - build.md / wrap.md   — add a rule to the command that prevents the pattern
+  - Agent invocation     — if the pattern came from a subagent, note in the
+                           next handoff's "Watch out for:" to include explicit
+                           verification guidance in the agent prompt
+
+If no toolkit changes are warranted, state why and move on.
+
+When all four steps are done, say: "Ready for /handoff."

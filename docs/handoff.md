@@ -442,3 +442,67 @@
       - expo-dev-client required; cannot test on Expo Go
       - No audio yet (TTS deferred to later phase) — visual-only execution for now
       - loadSession is already in the store (Phase 4); call it, don't re-implement it
+
+---
+
+## 2026-04-05T01:53:12Z
+**Completed this session:**
+- Phase 8 — Session execution screen (app/session/[id].tsx):
+  - buildStepSequence() — pure function, called once via useMemo before execution
+    begins (PRD §6.2). Produces flat ExecutionStep[] from Session + Exercise[].
+  - State machine: HOLD | RUNNING | PAUSED | REP | AUTO | DONE
+  - Bilateral timed exercises: Left → Right (no rest/delay between sides)
+  - Bilateral rep exercises: single step, "N reps each side"
+  - restBetweenRoundsSec < 5 → between-round rest skipped (PRD §6.1)
+  - loadSession on mount, clearCurrentSession on unmount
+  - Controls: Go, Done, Pause, Resume, Skip, Prev, End Session (confirm dialog)
+  - Unsupported screen for session.type !== 'resistance'
+  - TypeScript: zero errors
+- Bilateral behavior decision prompted PRD + schema updates:
+  - PRD §6.2 and §6.3 rewritten to describe new bilateral rules
+  - schema.md: reps field annotated as per-side for bilateral exercises
+- Toolkit updates:
+  - C:/Users/James/.claude/commands/handoff.md — added "Relevant docs sections:"
+    field to Next session template
+  - .claude/commands/wrap.md — added STEP 4 to close retrospective→prospective loop
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Bilateral timed exercises: Left then Right with no rest/delay between sides;
+  durationSec is per-side. A normal rest follows after Right completes.
+- Bilateral rep exercises: single step, reps is per-side, display "N reps each side".
+- Applies identically to all phases (warmup, main, cooldown, between-round stretch).
+- mobility/stretching session types: show "unsupported" screen for now.
+  (See decisions.md entry added this session.)
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Run /unit-tests in a fresh session to generate tests for
+    buildStepSequence() in app/session/[id].tsx. It is a pure function with
+    clear input/output — high-value test target. No prior tests exist for Phase 8.
+    The /unit-tests command reads this handoff and identifies targets automatically.
+  Then: Phase 9 — TTS voice guidance.
+    Specifically:
+      1. Install expo-speech (npx expo install expo-speech)
+      2. Install expo-audio (npx expo install expo-audio) for ducking
+      3. Implement announceCurrentEx(step) and announceNextEx(step) per PRD §6.5
+      4. 3-2-1 countdown TTS in the final 3 seconds of any timed interval
+      5. Audio ducking: duckOthers mode so background music is not stopped
+    Watch out for:
+      - TTS must not block the timer — fire-and-forget, async
+      - expo-dev-client required; cannot test on Expo Go
+      - Audio ducking on Android 8+ is handled by the OS via AudioFocus —
+        expo-audio with duckOthers mode is the correct approach
+      - Bilateral steps: Left and Right each get their own TTS announcement
+      - For rest/between steps, announceNextEx should announce what is coming
+        AFTER the rest (i.e., the step after the rest step, not the rest itself)
+  Relevant docs sections: PRD §6.5 (voice guidance), PRD §6.3 (hold-before-step
+    timing), architecture.md §Audio
+  Watch out for (Phase 9):
+    - Do not re-read app/session/[id].tsx in full — grep for announce call sites
+      and state machine hooks; tsc --noEmit confirms integration
+    - When invoking expo-dev agent: include explicit rule in prompt —
+      "Verify by tsc --noEmit and grep. Do not re-read generated files in full."

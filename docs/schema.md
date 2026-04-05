@@ -138,7 +138,7 @@ interface Exercise {
   name: string;                      // future join key to ExerciseDefinition library
   type: StepType;
   durationSec: number | null;        // null if type = 'rep'; per-side if isBilateral = true
-  reps: number | null;               // null if type = 'timed'
+  reps: number | null;               // null if type = 'timed'; per-side if isBilateral = true; display as "N reps each side"
   weight: string | null;             // free-form; e.g. "20kg", "bodyweight", null if not applicable
   equipment: string;                 // free-form; e.g. "TRX", "resistance band"
   formCues: string[];                // displayed as bulleted list in exercise detail view
