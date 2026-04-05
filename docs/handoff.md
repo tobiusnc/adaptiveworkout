@@ -480,11 +480,61 @@
 
 **Next session:**
   Read: CLAUDE.md and this handoff entry
-  First task: Run /unit-tests in a fresh session to generate tests for
-    buildStepSequence() in app/session/[id].tsx. It is a pure function with
-    clear input/output — high-value test target. No prior tests exist for Phase 8.
-    The /unit-tests command reads this handoff and identifies targets automatically.
-  Then: Phase 9 — TTS voice guidance.
+  First task: Phase 9 — TTS voice guidance.
+  (/unit-tests was completed — see 2026-04-05 entry below. Skip it.)
+    Specifically:
+      1. Install expo-speech (npx expo install expo-speech)
+      2. Install expo-audio (npx expo install expo-audio) for ducking
+      3. Implement announceCurrentEx(step) and announceNextEx(step) per PRD §6.5
+      4. 3-2-1 countdown TTS in the final 3 seconds of any timed interval
+      5. Audio ducking: duckOthers mode so background music is not stopped
+    Watch out for:
+      - TTS must not block the timer — fire-and-forget, async
+      - expo-dev-client required; cannot test on Expo Go
+      - Audio ducking on Android 8+ is handled by the OS via AudioFocus —
+        expo-audio with duckOthers mode is the correct approach
+      - Bilateral steps: Left and Right each get their own TTS announcement
+      - For rest/between steps, announceNextEx should announce what is coming
+        AFTER the rest (i.e., the step after the rest step, not the rest itself)
+  Relevant docs sections: PRD §6.5 (voice guidance), PRD §6.3 (hold-before-step
+    timing), architecture.md §Audio
+  Watch out for (Phase 9):
+    - Do not re-read app/session/[id].tsx in full — grep for announce call sites
+      and state machine hooks; tsc --noEmit confirms integration
+    - When invoking expo-dev agent: include explicit rule in prompt —
+      "Verify by tsc --noEmit and grep. Do not re-read generated files in full."
+
+---
+
+## 2026-04-05T(unit-tests session)
+**Completed this session:**
+- /unit-tests — 30 tests for buildStepSequence (commit 6fa4639):
+  - Extracted buildStepSequence() and its types (ExecutionStep, ExecutionStepKind,
+    HOLD_BEFORE_STEP_KINDS) from app/session/[id].tsx into
+    src/session/buildStepSequence.ts — pure TypeScript, no React/RN/expo-router deps.
+  - app/session/[id].tsx now imports from src/session/buildStepSequence.ts.
+  - Test file: app/session/__tests__/buildStepSequence.test.ts (30 tests, 0 mocks needed).
+  - Added __mocks__/react-native-safe-area-context.js stub + jest.config.js
+    moduleNameMapper entry (react-native-safe-area-context is a peer dep of
+    expo-router not installed in this project).
+  - Coverage: src/session/buildStepSequence.ts shows honest coverage (~90%+);
+    app/session/[id].tsx shows 0% (expected — screen/UI code, not unit-testable).
+- Toolkit: .claude/commands/unit-tests.md updated with src/session/ include path
+  and an "Extraction rule": pure functions in screen files must be extracted to
+  src/<domain>/ before tests are written — do NOT import screen files in tests.
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Pure functions in screen files belong in src/<domain>/ for testability.
+  Importing screen files in tests requires excessive mocking and hides real
+  coverage gaps. Extract first, then test the extracted module directly.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 9 — TTS voice guidance.
     Specifically:
       1. Install expo-speech (npx expo install expo-speech)
       2. Install expo-audio (npx expo install expo-audio) for ducking
