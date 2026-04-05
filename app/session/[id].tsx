@@ -33,7 +33,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useAppStore } from '../../src/store/useAppStore';
 import { colors, spacing, typography } from '../../src/styles/tokens';
-import { buildStepSequence } from '../../src/session/buildStepSequence';
+import {
+  buildStepSequence,
+  HOLD_BEFORE_STEP_KINDS,
+} from '../../src/session/buildStepSequence';
 import type { ExecutionStep, ExecutionStepKind } from '../../src/session/buildStepSequence';
 
 // ─── Execution state machine ──────────────────────────────────────────────────
@@ -69,18 +72,15 @@ function phaseLabelToDisplayName(phaseLabel: string): string {
   return phaseLabel;
 }
 
-// Returns true for step kinds that auto-advance without a "Go" tap.
-function isAutoAdvanceStep(kind: ExecutionStepKind): boolean {
-  return kind === 'rest' || kind === 'between' || kind === 'warmup-delay' || kind === 'cooldown-delay';
-}
-
 // Computes the initial ExecutionState for a given step upon entering it.
+// HOLD_BEFORE_STEP_KINDS is the single source of truth for which step kinds
+// require a "Go" tap (defined in buildStepSequence.ts alongside the type).
 function initialStateForStep(step: ExecutionStep): ExecutionState {
   if (step.durationSec === null) {
     // Rep-based step — user taps "Done" when finished.
     return 'REP';
   }
-  if (isAutoAdvanceStep(step.stepKind)) {
+  if (!HOLD_BEFORE_STEP_KINDS.has(step.stepKind)) {
     // Auto-advance: timer runs immediately without "Go" tap.
     return 'AUTO';
   }
@@ -113,6 +113,16 @@ export default function SessionScreen(): React.JSX.Element {
   // useRef gives us a stable container that survives re-renders without
   // triggering them (heap-allocated, not stack-local).
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Mirror of stepIndex in a ref so that the setTimeout callback inside the
+  // timer interval always reads the current step index, not the stale closure
+  // value captured at effect setup time. Without this, a Skip/Prev tap on the
+  // exact tick where secondsLeft hits 1 could fire advanceToStep with the wrong
+  // index (M2 from code review).
+  const stepIndexRef = useRef<number>(stepIndex);
+  useEffect(() => {
+    stepIndexRef.current = stepIndex;
+  }, [stepIndex]);
 
   // ── Step sequence — built once from loaded data ────────────────────────────
   // useMemo is analogous to computing a value once and caching it.
@@ -209,10 +219,10 @@ export default function SessionScreen(): React.JSX.Element {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           stopTimer();
-          // Schedule the advance outside the state updater to keep it pure.
-          // setTimeout(0) defers until the current render cycle completes —
-          // analogous to posting a message to a queue rather than calling directly.
-          setTimeout(() => { advanceToStep(stepIndex + 1, steps); }, 0);
+          // Read stepIndexRef.current (not the closure-captured stepIndex) so
+          // that a Skip/Prev tap on the exact tick where prev hits 1 does not
+          // cause a double-advance from the old index.
+          setTimeout(() => { advanceToStep(stepIndexRef.current + 1, steps); }, 0);
           return 0;
         }
         return prev - 1;
@@ -232,7 +242,7 @@ export default function SessionScreen(): React.JSX.Element {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           stopTimer();
-          setTimeout(() => { advanceToStep(stepIndex + 1, steps); }, 0);
+          setTimeout(() => { advanceToStep(stepIndexRef.current + 1, steps); }, 0);
           return 0;
         }
         return prev - 1;
@@ -250,14 +260,9 @@ export default function SessionScreen(): React.JSX.Element {
     };
   }, [stopTimer, clearCurrentSession]);
 
-  // ── Session complete: navigate back ───────────────────────────────────────
-  useEffect(() => {
-    if (execState === 'DONE') {
-      // Post-session feedback is deferred (Phase 9).
-      // Navigate back to home screen on completion.
-      router.replace('/');
-    }
-  }, [execState, router]);
+  // No auto-navigate on DONE — the completion screen is shown instead.
+  // The user taps "Finish" to return home. Post-session feedback (Phase 9)
+  // will replace this screen.
 
   // ─── Event handlers ────────────────────────────────────────────────────────
 
@@ -296,7 +301,7 @@ export default function SessionScreen(): React.JSX.Element {
     if (currentStep === undefined) {
       return;
     }
-    const resumeState: ExecutionState = isAutoAdvanceStep(currentStep.stepKind)
+    const resumeState: ExecutionState = !HOLD_BEFORE_STEP_KINDS.has(currentStep.stepKind)
       ? 'AUTO'
       : 'RUNNING';
     setExecState(resumeState);
@@ -317,6 +322,11 @@ export default function SessionScreen(): React.JSX.Element {
 
   // User taps "End Session" — shows confirmation dialog before leaving.
   const handleEndSession = useCallback((): void => {
+    // Capture state before stopping the timer so we can restore it faithfully
+    // if the user taps "Continue Session". stopTimer() does not change execState,
+    // but the Alert callback closes over a snapshot — capturing explicitly makes
+    // the intent clear and guards against future refactors.
+    const stateBeforeAlert = execState;
     stopTimer();
     Alert.alert(
       'End Session?',
@@ -326,14 +336,11 @@ export default function SessionScreen(): React.JSX.Element {
           text: 'Continue Session',
           style: 'cancel',
           onPress: (): void => {
-            // Restore the timer if we were running or auto-advancing.
-            const currentStep = steps[stepIndex];
-            if (currentStep !== undefined && currentStep.durationSec !== null) {
-              const resumeState: ExecutionState = isAutoAdvanceStep(currentStep.stepKind)
-                ? 'AUTO'
-                : execState === 'HOLD' ? 'HOLD' : 'RUNNING';
-              setExecState(resumeState);
-            }
+            // Restore exactly the state the user was in before the dialog opened.
+            // HOLD/REP/PAUSED have no timer — just set state directly.
+            // RUNNING/AUTO had a timer — setting state triggers the useEffect
+            // that restarts it.
+            setExecState(stateBeforeAlert);
           },
         },
         {
@@ -345,7 +352,7 @@ export default function SessionScreen(): React.JSX.Element {
         },
       ],
     );
-  }, [stopTimer, steps, stepIndex, execState, router]);
+  }, [stopTimer, execState, router]);
 
   // ─── Render helpers ────────────────────────────────────────────────────────
 
@@ -593,6 +600,22 @@ export default function SessionScreen(): React.JSX.Element {
     );
   }
 
+  function renderComplete(): React.JSX.Element {
+    return (
+      <View style={styles.centeredContainer}>
+        <Text style={styles.completeHeading}>Session Complete</Text>
+        <Text style={styles.completeSubtext}>Great work!</Text>
+        <TouchableOpacity
+          style={styles.buttonPrimary}
+          onPress={() => { router.replace('/'); }}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.buttonPrimaryText}>Finish</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   // ─── Root render ──────────────────────────────────────────────────────────
 
   if (screenState === 'LOADING') {
@@ -600,6 +623,9 @@ export default function SessionScreen(): React.JSX.Element {
   }
   if (screenState === 'ERROR') {
     return renderError();
+  }
+  if (execState === 'DONE') {
+    return renderComplete();
   }
   return renderExecution();
 }
@@ -890,5 +916,17 @@ const styles = StyleSheet.create({
   endSessionText: {
     ...typography.label,
     color: colors.error,
+  },
+  completeHeading: {
+    ...typography.heading,
+    color: colors.text,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  completeSubtext: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
   },
 });

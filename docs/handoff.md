@@ -481,7 +481,7 @@
 **Next session:**
   Read: CLAUDE.md and this handoff entry
   First task: Phase 9 — TTS voice guidance.
-  (/unit-tests was completed — see 2026-04-05 entry below. Skip it.)
+  (/unit-tests and code review fixes completed — see 2026-04-05 entries below. Skip both.)
     Specifically:
       1. Install expo-speech (npx expo install expo-speech)
       2. Install expo-audio (npx expo install expo-audio) for ducking
@@ -496,6 +496,66 @@
       - Bilateral steps: Left and Right each get their own TTS announcement
       - For rest/between steps, announceNextEx should announce what is coming
         AFTER the rest (i.e., the step after the rest step, not the rest itself)
+  Relevant docs sections: PRD §6.5 (voice guidance), PRD §6.3 (hold-before-step
+    timing), architecture.md §Audio
+  Watch out for (Phase 9):
+    - Do not re-read app/session/[id].tsx in full — grep for announce call sites
+      and state machine hooks; tsc --noEmit confirms integration
+    - When invoking expo-dev agent: include explicit rule in prompt —
+      "Verify by tsc --noEmit and grep. Do not re-read generated files in full."
+
+---
+
+## 2026-04-05T(code-review session)
+**Completed this session:**
+- Code review of Phase 8 (app/session/[id].tsx) + buildStepSequence extraction.
+  All 4 findings fixed:
+  - C1 (critical): handleEndSession now captures execState before stopTimer() and
+    restores it exactly in the "Continue Session" path. PAUSED no longer becomes
+    RUNNING after dismissing the End Session dialog.
+  - M1 (minor): Removed inline isAutoAdvanceStep() function. Both call sites now
+    use HOLD_BEFORE_STEP_KINDS.has() imported from src/session/buildStepSequence.ts
+    — single source of truth for step kind classification.
+  - M2 (minor): Added stepIndexRef (useRef + useEffect sync) to [id].tsx. Both
+    timer effects (AUTO and RUNNING) now read stepIndexRef.current in the
+    setTimeout callback instead of the stale closure-captured stepIndex. Prevents
+    double-advance on Skip/Prev tap that races with a 1-second tick boundary.
+  - M4 (minor): Removed the DONE useEffect that called router.replace('/') immediately.
+    Added renderComplete() showing "Session Complete / Great work! / Finish" button.
+    Root render now checks execState === 'DONE' before renderExecution().
+- All 59 tests still pass; tsc --noEmit clean.
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- DONE state shows a completion screen (not instant navigation). Post-session
+  feedback (Phase 9+) will replace renderComplete().
+- HOLD_BEFORE_STEP_KINDS in buildStepSequence.ts is the authoritative set for
+  step kind classification. The screen must not maintain a parallel list.
+- stepIndexRef pattern: when a timer callback must read "current" state that
+  changes outside the effect's dependency array, mirror the value in a ref and
+  read the ref inside the callback.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 9 — TTS voice guidance.
+    Specifically:
+      1. Install expo-speech (npx expo install expo-speech)
+      2. Install expo-audio (npx expo install expo-audio) for ducking
+      3. Implement announceCurrentEx(step) and announceNextEx(step) per PRD §6.5
+      4. 3-2-1 countdown TTS in the final 3 seconds of any timed interval
+      5. Audio ducking: duckOthers mode so background music is not stopped
+    Watch out for:
+      - TTS must not block the timer — fire-and-forget, async
+      - expo-dev-client required; cannot test on Expo Go
+      - Audio ducking on Android 8+ is handled by the OS via AudioFocus —
+        expo-audio with duckOthers mode is the correct approach
+      - Bilateral steps: Left and Right each get their own TTS announcement
+      - For rest/between steps, announceNextEx should announce what is coming
+        AFTER the rest (i.e., the step after the rest step, not the rest itself)
+      - renderComplete() will need TTS "session complete" announcement (Phase 9)
   Relevant docs sections: PRD §6.5 (voice guidance), PRD §6.3 (hold-before-step
     timing), architecture.md §Audio
   Watch out for (Phase 9):
