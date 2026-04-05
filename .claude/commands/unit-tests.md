@@ -62,11 +62,19 @@ cannot pass without changing source, note it as a comment and skip that assertio
 Run: npx tsc --noEmit
 Fix any type errors.
 
-STEP 5 — REPORT
+STEP 5 — COVERAGE
+Run: npx jest --coverage --coverageReporters=text
+Show the per-file coverage table.
+Call out any file in src/ai/, src/store/, src/storage/, or src/session/ with
+uncovered branches that contain error paths or retry logic. This is
+informational — do not block on numbers, but note anything worth a follow-up
+test in the handoff.
+
+STEP 6 — REPORT
 List each test file created, the behaviors covered, and any skipped assertions
 with the reason.
 
-STEP 6 — CLOSE SESSION
+STEP 7 — CLOSE SESSION
 Run /commit, then /handoff.
 
 The handoff entry must include:

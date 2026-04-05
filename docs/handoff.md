@@ -616,3 +616,68 @@
       and state machine hooks; tsc --noEmit confirms integration
     - When invoking expo-dev agent: include explicit rule in prompt —
       "Verify by tsc --noEmit and grep. Do not re-read generated files in full."
+
+---
+
+## 2026-04-05T(phase-9-tts session)
+**Completed this session:**
+- Phase 9 — TTS voice guidance (commits 7a929f2):
+  - Installed expo-speech and expo-audio.
+  - Created src/session/useTTS.ts — custom hook encapsulating all TTS logic:
+    - One-time audio session setup on mount via setAudioModeAsync({ interruptionMode: 'duckOthers' }), restored on unmount.
+    - announceStep(index, allSteps): branches on stepKind to build announcement text.
+      - work/warmup-work/cooldown-work/stretch → "Squat Left, 40 seconds" / "Push-ups, 8 reps"
+      - rest/between → "Rest 20 sec, prepare for Squat"
+      - warmup-delay/cooldown-delay → "Prepare for Squat"
+    - announceDone() → "Session complete"
+    - stopSpeech() → Speech.stop() fire-and-forget
+    - announceCountdown(n) → speaks "3", "2", "1" when n is 3, 2, or 1
+  - Modified app/session/[id].tsx:
+    - Hook instantiated in SessionScreen
+    - advanceToStep: stopSpeech() at entry, announceDone() in DONE branch, announceStep() after state set
+    - handlePause: stopSpeech() added
+    - handleResume: announceStep(stepIndex, steps) re-announces on resume
+    - New useEffect watching [secondsLeft, execState, announceCountdown] for 3-2-1 countdown
+      (fires for both RUNNING and AUTO states)
+- Toolkit changes:
+  - Moved coverage report from /wrap STEP 2 to /unit-tests STEP 5 (more actionable there)
+  - Added "Relevant docs sections:" field to handoff.md next-session template
+  - Added rule to build.md: if prompt names exact call sites, don't tell agent to re-read those files
+  - wrap.md: added bullet flagging PRD reads that duplicate handoff "Watch out for" content
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Pause cancels in-flight TTS (Speech.stop()). Resume re-announces the current step.
+- Audio session initialized once on screen mount (not per-utterance).
+- Rest/between announcement format: "Rest [n] sec, prepare for [exercise]"
+- Warmup-delay/cooldown-delay announcement format: "Prepare for [exercise]"
+- useTTS.ts is a standalone hook in src/session/ — platform-specific changes stay isolated there.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /unit-tests in a fresh session for src/session/useTTS.ts
+    - useTTS.ts is a React hook — it uses useEffect and useCallback from React,
+      and calls expo-speech and expo-audio. These native modules must be mocked.
+    - Testable behaviors:
+        - announceStep: correct text for each stepKind (8 branches)
+        - announceStep: bilateral side appended to name
+        - announceStep: rest/between with no next step → "Session complete"
+        - announceStep: warmup-delay/cooldown-delay with no next step → silent
+        - announceStep: undefined step index → silent
+        - announceDone: speaks "Session complete"
+        - announceCountdown: only fires for 1, 2, 3 — silent for 0 and 4
+        - stopSpeech: calls Speech.stop()
+        - Audio session setup: setAudioModeAsync called on mount with duckOthers
+        - Audio session teardown: setAudioModeAsync called on unmount with mixWithOthers
+    - Hook-under-test pattern: use renderHook from @testing-library/react-hooks or
+      React 18's renderHook from @testing-library/react. Check which is installed first.
+  Relevant docs sections: none needed — useTTS.ts is self-contained
+  Watch out for:
+    - expo-speech and expo-audio are native modules — mock at jest.mock level
+    - renderHook must be used (not a plain function call) because of useEffect/useCallback
+    - setAudioModeAsync is imported as a named export from expo-audio — mock accordingly
+    - Speech.stop() returns a Promise in the actual API — mock should reflect this
+    - Do NOT import app/session/[id].tsx in tests

@@ -12,14 +12,7 @@ For each planned task and watch-out item, state one of:
 
 If anything is INCOMPLETE, stop and surface it before continuing.
 
-STEP 2 — COVERAGE
-Run: npx jest --coverage --coverageReporters=text-summary
-Show the output.
-Call out any file in src/ai/, src/store/, or src/storage/ with 0% coverage
-that contains branching logic or error paths. This is informational — do not
-block on numbers.
-
-STEP 3 — TOKEN EFFICIENCY
+STEP 2 — TOKEN EFFICIENCY
 Review this session's work. Give 2-3 specific recommendations to reduce token
 usage next session. Look for:
   - Files read in full when a targeted read or grep would have sufficed
@@ -31,8 +24,8 @@ usage next session. Look for:
 
 Reference specific examples from this session. Skip generic advice.
 
-STEP 4 — ENCODE LESSONS
-For each pattern identified in STEP 3: decide if it should be encoded in a
+STEP 3 — ENCODE LESSONS
+For each pattern identified in STEP 2: decide if it should be encoded in a
 toolkit file so it does not recur. Apply any changes now (before /handoff).
 
 Common targets:
@@ -44,9 +37,9 @@ Common targets:
 
 If no toolkit changes are warranted, state why and move on.
 
-When all four steps are done, say: "Ready for /handoff."
+When all three steps are done, say: "Ready for /handoff."
 
-STEP 5 — POST-BUILD SEQUENCE REMINDER
+STEP 4 — POST-BUILD SEQUENCE REMINDER
 After /handoff completes, print this checklist verbatim so JD has the full
 sequence in front of him before closing the session:
 
