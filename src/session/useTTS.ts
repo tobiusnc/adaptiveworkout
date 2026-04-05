@@ -58,6 +58,13 @@ export function useTTS(): UseTTSResult {
     });
 
     return (): void => {
+      // Cancel any in-flight speech before restoring the audio session mode.
+      // Without this, an utterance that started while duckOthers was active
+      // would continue playing after the mode is reset to mixWithOthers —
+      // meaning background audio would no longer duck for it.
+      Speech.stop().catch((err: unknown) => {
+        console.warn('[useTTS] Speech.stop() (teardown) failed:', err);
+      });
       // Restore default audio mode on unmount.
       setAudioModeAsync({
         playsInSilentMode: false,

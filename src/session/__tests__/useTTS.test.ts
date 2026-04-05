@@ -193,6 +193,58 @@ describe('announceCountdown', () => {
   });
 });
 
+// ── stop-then-speak sequencing ────────────────────────────────────────────────
+//
+// Validates the primary usage pattern in advanceToStep: stopSpeech() is always
+// called before announceStep() or announceDone(). This ensures Speech.stop()
+// is dispatched first so that native speech queue processing preserves the
+// intended order (stop → speak).
+
+describe('stop-then-speak sequencing', () => {
+  it('Speech.stop() is called before Speech.speak() when stopSpeech precedes announceStep', () => {
+    const { result } = renderHook(() => useTTS());
+    const steps: ExecutionStep[] = [
+      makeStep({ stepKind: 'work', label: 'Push-up', durationSec: 40 }),
+    ];
+
+    const callOrder: string[] = [];
+    mockStop.mockImplementation(() => {
+      callOrder.push('stop');
+      return Promise.resolve(undefined);
+    });
+    mockSpeak.mockImplementation(() => {
+      callOrder.push('speak');
+    });
+
+    act(() => {
+      result.current.stopSpeech();
+      result.current.announceStep(0, steps);
+    });
+
+    expect(callOrder).toEqual(['stop', 'speak']);
+  });
+
+  it('Speech.stop() is called before Speech.speak() when stopSpeech precedes announceDone', () => {
+    const { result } = renderHook(() => useTTS());
+
+    const callOrder: string[] = [];
+    mockStop.mockImplementation(() => {
+      callOrder.push('stop');
+      return Promise.resolve(undefined);
+    });
+    mockSpeak.mockImplementation(() => {
+      callOrder.push('speak');
+    });
+
+    act(() => {
+      result.current.stopSpeech();
+      result.current.announceDone();
+    });
+
+    expect(callOrder).toEqual(['stop', 'speak']);
+  });
+});
+
 // ── announceStep — undefined index ─────────────────────────────────────────────
 
 describe('announceStep — undefined step', () => {

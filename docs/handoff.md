@@ -681,3 +681,40 @@
     - setAudioModeAsync is imported as a named export from expo-audio — mock accordingly
     - Speech.stop() returns a Promise in the actual API — mock should reflect this
     - Do NOT import app/session/[id].tsx in tests
+
+---
+
+## 2026-04-05T(unit-tests-useTTS session)
+**Completed this session:**
+- Unit tests for `src/session/useTTS.ts` (commit 5be3963):
+  - Created `src/session/__tests__/useTTS.test.ts` — 37 tests, all passing
+  - Mocked `expo-speech` (Speech.speak, Speech.stop) and `expo-audio` (setAudioModeAsync) at jest.mock level
+  - Used renderHook from @testing-library/react for hook lifecycle testing
+  - Behaviors covered:
+    - Audio session setup on mount (setAudioModeAsync with duckOthers) — 2 tests
+    - Audio session teardown on unmount (setAudioModeAsync with mixWithOthers) — 2 tests
+    - stopSpeech calls Speech.stop() — 1 test
+    - announceDone speaks "Session complete" — 1 test
+    - announceCountdown fires for 1, 2, 3; silent for 0, 4, 10 — 6 tests
+    - announceStep undefined/out-of-bounds index → silent — 2 tests
+    - announceStep work/warmup-work/cooldown-work/stretch (timed, reps, bilateral) — 11 tests
+    - announceStep rest/between (next exists, bilateral, last step → "Session complete") — 6 tests
+    - announceStep warmup-delay/cooldown-delay (next exists, bilateral, last step → silent) — 6 tests
+  - Coverage: Statements 93.33%, Branches 97.29%, Functions 70%, Lines 93.33%
+  - 3 uncovered lines: console.warn inside .catch() on fire-and-forget Promises (setup/teardown/stop failures) — intentionally not tested (non-fatal defensive paths)
+  - No source file modifications required
+
+**In progress:** Nothing.
+
+**Decisions made:** None new.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /review in a fresh session — review Phase 9 TTS work (useTTS.ts + session screen integration + tests)
+  Relevant docs sections: none needed
+  Watch out for:
+    - Code reviewer should look at both src/session/useTTS.ts and app/session/[id].tsx (the integration points)
+    - The 3 uncovered .catch() lines are intentional — reviewer should not flag them as a gap
+

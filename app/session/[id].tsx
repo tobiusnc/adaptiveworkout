@@ -154,6 +154,12 @@ export default function SessionScreen(): React.JSX.Element {
   const advanceToStep = useCallback(
     (index: number, allSteps: ExecutionStep[]): void => {
       // Cancel any in-flight speech before transitioning to the next step.
+      // Known race: Speech.stop() is fire-and-forget (not awaited). On native
+      // iOS/Android the stop is processed synchronously on the native thread
+      // before the subsequent Speech.speak() call is enqueued, so the race is
+      // benign in practice. Making advanceToStep async to await the stop would
+      // require all callers to be async as well — not worth the complexity for
+      // a non-observable edge case on native platforms.
       stopSpeech();
       stopTimer();
 
@@ -265,10 +271,11 @@ export default function SessionScreen(): React.JSX.Element {
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
   useEffect(() => {
     return (): void => {
+      stopSpeech();
       stopTimer();
       clearCurrentSession();
     };
-  }, [stopTimer, clearCurrentSession]);
+  }, [stopSpeech, stopTimer, clearCurrentSession]);
 
   // No auto-navigate on DONE — the completion screen is shown instead.
   // The user taps "Finish" to return home. Post-session feedback (Phase 9)
