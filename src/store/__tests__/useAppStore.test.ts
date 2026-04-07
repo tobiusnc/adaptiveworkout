@@ -20,6 +20,7 @@ import type {
   Session,
   Exercise,
   GeneratePlanOutput,
+  SessionFeedback,
 } from '../../types/index';
 
 // ── Mock expo-crypto ───────────────────────────────────────────────────────────
@@ -38,14 +39,15 @@ const mockRandomUUID = jest.mocked(ExpoCrypto.randomUUID);
 // ── Store reset helpers ────────────────────────────────────────────────────────
 
 const INITIAL_STORE_STATE = {
-  storageService:  null,
-  isInitializing:  true,
-  initError:       null,
-  profile:         null,
-  activePlan:      null,
-  planSessions:    [] as Session[],
-  currentSession:  null,
+  storageService:   null,
+  isInitializing:   true,
+  initError:        null,
+  profile:          null,
+  activePlan:       null,
+  planSessions:     [] as Session[],
+  currentSession:   null,
   currentExercises: [] as Exercise[],
+  pendingFeedback:  null,
 };
 
 function resetStore(): void {
@@ -550,5 +552,144 @@ describe('clearCurrentSession', () => {
     const state = useAppStore.getState();
     expect(state.currentSession).toBeNull();
     expect(state.currentExercises).toEqual([]);
+  });
+});
+
+// ── setPendingFeedback ────────────────────────────────────────────────────────
+
+describe('setPendingFeedback', () => {
+  it('sets pendingFeedback in state with the supplied value', () => {
+    const value = { sessionId: 'session-xyz', isComplete: true };
+    useAppStore.getState().setPendingFeedback(value);
+    expect(useAppStore.getState().pendingFeedback).toEqual(value);
+  });
+
+  it('preserves exact isComplete: false when set', () => {
+    const value = { sessionId: 'session-abc', isComplete: false };
+    useAppStore.getState().setPendingFeedback(value);
+    expect(useAppStore.getState().pendingFeedback).toEqual(value);
+  });
+
+  it('clears pendingFeedback to null when called with null', () => {
+    // Pre-populate so we can verify it is actually cleared.
+    useAppStore.setState({ pendingFeedback: { sessionId: 'session-xyz', isComplete: true } });
+
+    useAppStore.getState().setPendingFeedback(null);
+
+    expect(useAppStore.getState().pendingFeedback).toBeNull();
+  });
+});
+
+// ── saveFeedback ──────────────────────────────────────────────────────────────
+
+describe('saveFeedback', () => {
+  const UUID_FEEDBACK = 'uuid-feedback-001';
+
+  const PENDING = { sessionId: 'session-pending-123', isComplete: true };
+
+  function setUpForSave(mockService: jest.Mocked<StorageService>): void {
+    mockRandomUUID.mockReturnValueOnce(UUID_FEEDBACK);
+    useAppStore.setState({ storageService: mockService, pendingFeedback: PENDING });
+  }
+
+  // ── Happy path ────────────────────────────────────────────────────────────────
+
+  it('calls storageService.saveFeedback once with a correctly shaped SessionFeedback', async () => {
+    const mockService = buildMockService();
+    setUpForSave(mockService);
+
+    await useAppStore.getState().saveFeedback('Great session!');
+
+    expect(mockService.saveFeedback).toHaveBeenCalledTimes(1);
+
+    const feedbackArg = mockService.saveFeedback.mock.calls[0][0] as SessionFeedback;
+    expect(feedbackArg.id).toBe(UUID_FEEDBACK);
+    expect(feedbackArg.schemaVersion).toBe(1);
+    expect(feedbackArg.sessionId).toBe(PENDING.sessionId);
+    expect(feedbackArg.isComplete).toBe(PENDING.isComplete);
+    expect(feedbackArg.commentText).toBe('Great session!');
+    expect(feedbackArg.effortRating).toBeNull();
+    expect(feedbackArg.hrLog).toBeNull();
+    // completedAt must be a non-empty ISO 8601 string.
+    expect(typeof feedbackArg.completedAt).toBe('string');
+    expect(feedbackArg.completedAt.length).toBeGreaterThan(0);
+  });
+
+  it('clears pendingFeedback to null after a successful save', async () => {
+    const mockService = buildMockService();
+    setUpForSave(mockService);
+
+    await useAppStore.getState().saveFeedback('Good workout');
+
+    expect(useAppStore.getState().pendingFeedback).toBeNull();
+  });
+
+  it('passes commentText: null when called with null', async () => {
+    const mockService = buildMockService();
+    setUpForSave(mockService);
+
+    await useAppStore.getState().saveFeedback(null);
+
+    const feedbackArg = mockService.saveFeedback.mock.calls[0][0] as SessionFeedback;
+    expect(feedbackArg.commentText).toBeNull();
+  });
+
+  it('sets isComplete: false on the feedback entity when pendingFeedback.isComplete is false', async () => {
+    mockRandomUUID.mockReturnValueOnce(UUID_FEEDBACK);
+    const mockService = buildMockService();
+    useAppStore.setState({
+      storageService:  mockService,
+      pendingFeedback: { sessionId: 'session-early-exit', isComplete: false },
+    });
+
+    await useAppStore.getState().saveFeedback(null);
+
+    const feedbackArg = mockService.saveFeedback.mock.calls[0][0] as SessionFeedback;
+    expect(feedbackArg.isComplete).toBe(false);
+  });
+
+  // ── Error: storageService not initialized ─────────────────────────────────────
+
+  it('throws when storageService is null', async () => {
+    // storageService is null after store reset — no injection needed.
+    // pendingFeedback is also null but the storageService guard fires first.
+    await expect(
+      useAppStore.getState().saveFeedback('Any comment'),
+    ).rejects.toThrow('StorageService not initialized');
+  });
+
+  // ── Error: no pendingFeedback in store ────────────────────────────────────────
+
+  it('throws when pendingFeedback is null', async () => {
+    const mockService = buildMockService();
+    // Inject a valid storageService but leave pendingFeedback as null (initial state).
+    useAppStore.setState({ storageService: mockService });
+
+    await expect(
+      useAppStore.getState().saveFeedback('Any comment'),
+    ).rejects.toThrow('saveFeedback called with no pendingFeedback in store.');
+  });
+
+  // ── Error: storageService.saveFeedback rejects ────────────────────────────────
+
+  it('propagates the error when storageService.saveFeedback rejects', async () => {
+    const mockService = buildMockService();
+    setUpForSave(mockService);
+    mockService.saveFeedback.mockRejectedValueOnce(new Error('DB write failed'));
+
+    await expect(
+      useAppStore.getState().saveFeedback('Some comment'),
+    ).rejects.toThrow('DB write failed');
+  });
+
+  it('does not clear pendingFeedback when storageService.saveFeedback rejects', async () => {
+    const mockService = buildMockService();
+    setUpForSave(mockService);
+    mockService.saveFeedback.mockRejectedValueOnce(new Error('DB write failed'));
+
+    await useAppStore.getState().saveFeedback('Some comment').catch(() => undefined);
+
+    // pendingFeedback must remain so the screen can retry.
+    expect(useAppStore.getState().pendingFeedback).toEqual(PENDING);
   });
 });

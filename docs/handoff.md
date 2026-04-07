@@ -750,3 +750,48 @@
     - Phase 9 (TTS) is fully built, reviewed, and tested — do not re-open it
     - The 3 uncovered .catch() lines in useTTS.ts are intentional (non-fatal defensive paths) — not a gap
 
+
+---
+
+## 2026-04-07T22:11:18Z
+**Completed this session:**
+- Fixed preplan.md to write generated plan to docs/plan.md after user approval
+- Reconstructed full 13-phase implementation plan in docs/plan.md (Phases 1–9 DONE, 10–13 TODO)
+- Phase 10 — Post-session feedback screen (commit 6438dbf):
+  - src/store/useAppStore.ts: added pendingFeedback state + setPendingFeedback + saveFeedback actions
+  - app/session/[id].tsx: renderComplete() routes to feedback with isComplete: true;
+    handleEndSession() now two-step Alert ("End this session early?" → "Log this session?")
+    with Yes → feedback (isComplete: false) / No → home; dialog copy updated
+  - app/session/feedback.tsx: full implementation replacing stub — null guard, multiline
+    text input, Save & Done (async with loading/error state), Skip; STT mic deferred
+- proceed.md updated: read docs/plan.md before docs/PRD.md when plan file exists
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- STT/mic input on feedback screen deferred to post-MVP (no STT package selected yet)
+- pendingFeedback passed via Zustand store (not route params) for feedback screen context
+- Two-step Alert for End Session: first confirms exit, second offers to log the session
+- "Log this session?" prompt added so users who open a session to review it (not run it)
+  can opt out of logging — no feedback written on "No, go home"
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /unit-tests in a fresh session for Phase 10 feedback work.
+    Testable units:
+      - src/store/useAppStore.ts — saveFeedback action (new): confirm SessionFeedback written
+        to storageService with correct fields; confirm pendingFeedback cleared after save;
+        confirm throws when storageService is null
+      - src/store/useAppStore.ts — setPendingFeedback action (new): confirm state updated
+      - app/session/feedback.tsx is a screen — do NOT import it in tests
+    Store file is src/store/useAppStore.ts (not workoutStore.ts)
+    Existing store tests: src/store/__tests__/useAppStore.test.ts (13 tests passing)
+  Then: Phase 11 — Progress strip + exercise detail bottom sheet (see docs/plan.md)
+  Relevant docs sections: PRD §6.8 (exercise detail), PRD §6.9 (progress strip)
+  Watch out for:
+    - Store file is src/store/useAppStore.ts — not workoutStore.ts
+    - crypto.randomUUID() is available in Hermes (Expo SDK 55) — no uuid package needed
+    - expo-dev-client required; cannot test on Expo Go
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional — not a gap
