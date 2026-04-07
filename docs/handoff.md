@@ -718,3 +718,35 @@
     - Code reviewer should look at both src/session/useTTS.ts and app/session/[id].tsx (the integration points)
     - The 3 uncovered .catch() lines are intentional — reviewer should not flag them as a gap
 
+---
+
+## 2026-04-05T(review-phase9 session)
+**Completed this session:**
+- Code review of Phase 9 TTS work (commit f281f07):
+  - Reviewed src/session/useTTS.ts, app/session/[id].tsx, src/session/__tests__/useTTS.test.ts
+  - Fixed all 4 findings from the review (2 major, 2 minor)
+
+**Findings and resolutions:**
+- [Major — FIXED] `useTTS.ts` unmount cleanup did not call `Speech.stop()` before restoring audio mode.
+  Fix: added `Speech.stop().catch(...)` at the top of the useEffect cleanup in useTTS.ts (before `setAudioModeAsync` teardown call).
+- [Major — FIXED] Screen unmount cleanup in `app/session/[id].tsx` did not call `stopSpeech()`.
+  Fix: added `stopSpeech()` as the first call in the unmount useEffect; added it to the dependency array.
+- [Minor — FIXED] Fire-and-forget `Speech.stop()` before `Speech.speak()` is a potential race with no API-level ordering guarantee.
+  Fix: added an inline comment in `advanceToStep` documenting the known race and why it is acceptable (native platforms process stop synchronously before enqueuing speak; making it async would cascade to all callers for a non-observable edge case).
+- [Minor — FIXED] No test for the stop-then-speak sequencing pattern (the primary usage in `advanceToStep`).
+  Fix: added 2 new tests in the `stop-then-speak sequencing` describe block — one for `stopSpeech` → `announceStep`, one for `stopSpeech` → `announceDone`. Both assert call order via a `callOrder` array. Total tests: 39 (was 37), all passing.
+
+**In progress:** Nothing.
+
+**Decisions made:** None new.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Begin next PRD feature — check PRD.md for the next unimplemented phase
+  Relevant docs sections: docs/PRD.md (next unbuilt phase), docs/schema.md if data work is involved
+  Watch out for:
+    - Phase 9 (TTS) is fully built, reviewed, and tested — do not re-open it
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional (non-fatal defensive paths) — not a gap
+

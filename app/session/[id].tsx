@@ -95,10 +95,11 @@ export default function SessionScreen(): React.JSX.Element {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const loadSession      = useAppStore((s) => s.loadSession);
+  const loadSession         = useAppStore((s) => s.loadSession);
   const clearCurrentSession = useAppStore((s) => s.clearCurrentSession);
-  const currentSession   = useAppStore((s) => s.currentSession);
-  const currentExercises = useAppStore((s) => s.currentExercises);
+  const currentSession      = useAppStore((s) => s.currentSession);
+  const currentExercises    = useAppStore((s) => s.currentExercises);
+  const setPendingFeedback  = useAppStore((s) => s.setPendingFeedback);
 
   // ── TTS hook ───────────────────────────────────────────────────────────────
   const { announceStep, announceDone, stopSpeech, announceCountdown } = useTTS();
@@ -350,17 +351,21 @@ export default function SessionScreen(): React.JSX.Element {
     advanceToStep(stepIndex - 1, steps);
   }, [stepIndex, steps, advanceToStep]);
 
-  // User taps "End Session" — shows confirmation dialog before leaving.
+  // User taps "End Session" — two-step Alert pattern:
+  //   Step 1: confirm intent to exit.
+  //   Step 2 (destructive path only): offer to log the partial session or go
+  //           straight home without logging.
+  //
+  // Capturing stateBeforeAlert before stopTimer() ensures faithful restore if
+  // the user cancels. stopTimer() does not mutate execState, but the explicit
+  // capture documents the intent and guards against future refactors.
   const handleEndSession = useCallback((): void => {
-    // Capture state before stopping the timer so we can restore it faithfully
-    // if the user taps "Continue Session". stopTimer() does not change execState,
-    // but the Alert callback closes over a snapshot — capturing explicitly makes
-    // the intent clear and guards against future refactors.
     const stateBeforeAlert = execState;
     stopTimer();
+
     Alert.alert(
       'End Session?',
-      'Your progress will not be saved. Are you sure you want to end this session?',
+      'End this session early?',
       [
         {
           text: 'Continue Session',
@@ -377,12 +382,34 @@ export default function SessionScreen(): React.JSX.Element {
           text: 'End Session',
           style: 'destructive',
           onPress: (): void => {
-            router.replace('/');
+            // Step 2: offer to log the partial session before leaving.
+            Alert.alert(
+              'Log this session?',
+              undefined,
+              [
+                {
+                  text: 'Yes, add notes',
+                  onPress: (): void => {
+                    if (currentSession !== null) {
+                      setPendingFeedback({ sessionId: currentSession.id, isComplete: false });
+                    }
+                    router.replace('/session/feedback');
+                  },
+                },
+                {
+                  text: 'No, go home',
+                  style: 'cancel',
+                  onPress: (): void => {
+                    router.replace('/');
+                  },
+                },
+              ],
+            );
           },
         },
       ],
     );
-  }, [stopTimer, execState, router]);
+  }, [stopTimer, execState, currentSession, setPendingFeedback, router]);
 
   // ─── Render helpers ────────────────────────────────────────────────────────
 
@@ -637,7 +664,12 @@ export default function SessionScreen(): React.JSX.Element {
         <Text style={styles.completeSubtext}>Great work!</Text>
         <TouchableOpacity
           style={styles.buttonPrimary}
-          onPress={() => { router.replace('/'); }}
+          onPress={() => {
+            if (currentSession !== null) {
+              setPendingFeedback({ sessionId: currentSession.id, isComplete: true });
+            }
+            router.replace('/session/feedback');
+          }}
           activeOpacity={0.8}
         >
           <Text style={styles.buttonPrimaryText}>Finish</Text>

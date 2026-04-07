@@ -23,6 +23,7 @@ import type {
   Exercise,
   GeneratePlanOutput,
   ExerciseDraft,
+  SessionFeedback,
 } from '../types/index';
 
 // ── Entity assembly helpers ───────────────────────────────────────────────────
@@ -136,6 +137,12 @@ interface AppState {
   // ── Active session (lazy — loaded only when user selects a session) ──────────
   currentSession: Session | null;
   currentExercises: Exercise[];
+
+  // ── Post-session feedback ─────────────────────────────────────────────────────
+  // Set by the session execution screen before navigating to the feedback screen.
+  // Cleared by saveFeedback() or setPendingFeedback(null) (skip).
+  // The feedback screen guards against null on mount (direct navigation protection).
+  pendingFeedback: { sessionId: string; isComplete: boolean } | null;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -170,6 +177,16 @@ interface AppActions {
   // Store state is updated directly — initialize() is NOT re-run — to avoid the
   // isInitializing flash and unnecessary DB re-reads (we already have all data).
   savePlanFromDraft: (output: GeneratePlanOutput) => Promise<void>;
+
+  // Called from the feedback screen after the user submits a comment.
+  // Reads pendingFeedback from state, constructs a SessionFeedback entity,
+  // persists it to storage, and clears pendingFeedback to null.
+  // Throws if storageService is not initialized or if pendingFeedback is null.
+  saveFeedback: (commentText: string | null) => Promise<void>;
+
+  // Sets or clears pendingFeedback. Call before navigating to /session/feedback
+  // (set) or when the user taps Skip (null).
+  setPendingFeedback: (value: { sessionId: string; isComplete: boolean } | null) => void;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -186,6 +203,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   planSessions: [],
   currentSession: null,
   currentExercises: [],
+  pendingFeedback: null,
 
   // ── initialize ───────────────────────────────────────────────────────────────
   initialize: async (service: StorageService): Promise<void> => {
@@ -257,5 +275,47 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
     // Update store directly — no re-run of initialize() to avoid isInitializing flash.
     set({ activePlan: plan });
+  },
+
+  // ── setPendingFeedback ────────────────────────────────────────────────────────
+  // Lightweight synchronous setter — no storage interaction.
+  // Analogous to setting a plain member variable before a function call in C++.
+  setPendingFeedback: (value: { sessionId: string; isComplete: boolean } | null): void => {
+    set({ pendingFeedback: value });
+  },
+
+  // ── saveFeedback ──────────────────────────────────────────────────────────────
+  // Reads pendingFeedback from current state, constructs a SessionFeedback entity
+  // (all MVP-deferred fields set to null), persists to storage, then clears
+  // pendingFeedback so the feedback screen cannot be reached again without a new
+  // session completing.
+  //
+  // Error propagation: throws — the caller (feedback screen) is responsible for
+  // catching and displaying the error to the user.
+  saveFeedback: async (commentText: string | null): Promise<void> => {
+    const { storageService, pendingFeedback } = get();
+    if (storageService === null) {
+      throw new Error('StorageService not initialized — call initialize() first.');
+    }
+    if (pendingFeedback === null) {
+      throw new Error('saveFeedback called with no pendingFeedback in store.');
+    }
+
+    const feedback: SessionFeedback = {
+      id: Crypto.randomUUID(),
+      schemaVersion: 1,
+      sessionId: pendingFeedback.sessionId,
+      completedAt: new Date().toISOString(),
+      isComplete: pendingFeedback.isComplete,
+      commentText,
+      effortRating: null,
+      hrLog: null,
+    };
+
+    await storageService.saveFeedback(feedback);
+
+    // Clear pendingFeedback after successful persistence so the feedback screen
+    // cannot double-submit if the user navigates back unexpectedly.
+    set({ pendingFeedback: null });
   },
 }));
