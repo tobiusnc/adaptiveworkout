@@ -127,7 +127,7 @@ export default function FeedbackScreen(): React.JSX.Element {
           {isSaving ? (
             <ActivityIndicator color={colors.background} />
           ) : (
-            <Text style={styles.buttonPrimaryText}>Save &amp; Done</Text>
+            <Text style={styles.buttonPrimaryText}>Save & Done</Text>
           )}
         </TouchableOpacity>
 

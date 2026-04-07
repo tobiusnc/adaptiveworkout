@@ -351,6 +351,35 @@ export default function SessionScreen(): React.JSX.Element {
     advanceToStep(stepIndex - 1, steps);
   }, [stepIndex, steps, advanceToStep]);
 
+  // Step 2 of the End Session flow: offer to log the partial session or go
+  // straight home. Extracted from handleEndSession to reduce nesting depth.
+  const showLogSessionAlert = useCallback((): void => {
+    Alert.alert(
+      'Log this session?',
+      undefined,
+      [
+        {
+          text: 'Yes, add notes',
+          onPress: (): void => {
+            if (currentSession !== null) {
+              setPendingFeedback({ sessionId: currentSession.id, isComplete: false });
+              router.replace('/session/feedback');
+            } else {
+              router.replace('/');
+            }
+          },
+        },
+        {
+          text: 'No, go home',
+          style: 'cancel',
+          onPress: (): void => {
+            router.replace('/');
+          },
+        },
+      ],
+    );
+  }, [currentSession, setPendingFeedback, router]);
+
   // User taps "End Session" — two-step Alert pattern:
   //   Step 1: confirm intent to exit.
   //   Step 2 (destructive path only): offer to log the partial session or go
@@ -381,35 +410,11 @@ export default function SessionScreen(): React.JSX.Element {
         {
           text: 'End Session',
           style: 'destructive',
-          onPress: (): void => {
-            // Step 2: offer to log the partial session before leaving.
-            Alert.alert(
-              'Log this session?',
-              undefined,
-              [
-                {
-                  text: 'Yes, add notes',
-                  onPress: (): void => {
-                    if (currentSession !== null) {
-                      setPendingFeedback({ sessionId: currentSession.id, isComplete: false });
-                    }
-                    router.replace('/session/feedback');
-                  },
-                },
-                {
-                  text: 'No, go home',
-                  style: 'cancel',
-                  onPress: (): void => {
-                    router.replace('/');
-                  },
-                },
-              ],
-            );
-          },
+          onPress: showLogSessionAlert,
         },
       ],
     );
-  }, [stopTimer, execState, currentSession, setPendingFeedback, router]);
+  }, [stopTimer, execState, showLogSessionAlert]);
 
   // ─── Render helpers ────────────────────────────────────────────────────────
 
@@ -667,8 +672,10 @@ export default function SessionScreen(): React.JSX.Element {
           onPress={() => {
             if (currentSession !== null) {
               setPendingFeedback({ sessionId: currentSession.id, isComplete: true });
+              router.replace('/session/feedback');
+            } else {
+              router.replace('/');
             }
-            router.replace('/session/feedback');
           }}
           activeOpacity={0.8}
         >
