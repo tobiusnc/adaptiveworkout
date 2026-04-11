@@ -23,12 +23,20 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  BackHandler,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type AppStateStatus,
 } from 'react-native';
+import {
+  saveInterruptedSession,
+  getInterruptedSession,
+  clearInterruptedSession,
+} from '../../src/session/interruptedSessionStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomSheet from '@gorhom/bottom-sheet';
@@ -95,6 +103,82 @@ function initialStateForStep(step: ExecutionStep): ExecutionState {
   return 'HOLD';
 }
 
+// ─── Fast-forward helper ───────────────────────────────────────────────────────
+//
+// When the app returns to the foreground after being backgrounded during a
+// RUNNING or AUTO state, real-world time has passed but the timer did not tick.
+// This function computes where we should be in the step sequence after
+// `elapsedSec` seconds have elapsed.
+//
+// The algorithm walks the step array forward, consuming time from each step:
+//   - If the current step's remaining time is <= elapsed, we consume it and
+//     advance to the next step (and consume from that step, and so on).
+//   - We STOP advancing at a HOLD step (requires user "Go" tap) or a REP step
+//     (requires user "Done" tap) — these are interaction barriers.
+//   - If we walk off the end of the array, the session completed while backgrounded.
+//
+// In C++ terms: this is a deterministic time-advance simulation on a queue of
+// time intervals, with early-exit conditions at user-interaction barriers.
+//
+// Returns the target step index and the remaining secondsLeft for that step.
+// The caller is responsible for calling advanceToStep(targetIndex, steps) and
+// then setSecondsLeft(targetSecondsLeft) to override the duration that
+// advanceToStep would have set.
+
+interface FastForwardResult {
+  targetIndex: number;
+  targetSecondsLeft: number;
+}
+
+function fastForward(
+  elapsedSec: number,
+  currentStepIndex: number,
+  currentSecondsLeft: number,
+  allSteps: ExecutionStep[],
+): FastForwardResult {
+  let remaining = elapsedSec;
+  let idx = currentStepIndex;
+  let secsLeft = currentSecondsLeft;
+
+  while (remaining > 0 && idx < allSteps.length) {
+    if (secsLeft <= remaining) {
+      // The elapsed time consumes this entire step — advance to the next one.
+      remaining -= secsLeft;
+      idx += 1;
+
+      if (idx >= allSteps.length) {
+        // Walked off the end — session completed while backgrounded.
+        break;
+      }
+
+      const nextStep = allSteps[idx];
+      if (nextStep === undefined) {
+        break;
+      }
+      if (nextStep.durationSec === null) {
+        // REP step — user must tap "Done". Stop here.
+        break;
+      }
+      if (HOLD_BEFORE_STEP_KINDS.has(nextStep.stepKind)) {
+        // HOLD step — user must tap "Go". Stop here.
+        break;
+      }
+      // AUTO-advance step: initialize its time and continue consuming.
+      secsLeft = nextStep.durationSec;
+    } else {
+      // The elapsed time is absorbed within this step — we stay here.
+      secsLeft -= remaining;
+      remaining = 0;
+    }
+  }
+
+  return { targetIndex: idx, targetSecondsLeft: secsLeft };
+}
+
+// Exposed for unit testing via the __testExports pattern.
+// Not part of the public module API — only test files read this.
+export const __testExports = { fastForward };
+
 // ─── SessionScreen ─────────────────────────────────────────────────────────────
 
 export default function SessionScreen(): React.JSX.Element {
@@ -147,6 +231,29 @@ export default function SessionScreen(): React.JSX.Element {
   useEffect(() => {
     stepIndexRef.current = stepIndex;
   }, [stepIndex]);
+
+  // Mirror of execState in a ref so that the AppState event handler (which runs
+  // inside a closure captured at subscription time) always reads the current
+  // execution state. In C++ terms: the AppState callback is like a lambda that
+  // captures execState by value at the time addEventListener is called. The ref
+  // gives us a stable pointer to the current value regardless of when the
+  // callback fires.
+  const execStateRef = useRef<ExecutionState>(execState);
+  useEffect(() => {
+    execStateRef.current = execState;
+  }, [execState]);
+
+  // Mirror of secondsLeft in a ref for the same reason — the AppState handler
+  // needs the live value to persist the correct timer position to secure-store.
+  const secondsLeftRef = useRef<number>(secondsLeft);
+  useEffect(() => {
+    secondsLeftRef.current = secondsLeft;
+  }, [secondsLeft]);
+
+  // Timestamp (Date.now() ms) recorded when the app transitions to background.
+  // Set to null when the app returns to the foreground so we know whether
+  // there's a pending elapsed-time calculation.
+  const backgroundedAtRef = useRef<number | null>(null);
 
   // ── Step sequence — built once from loaded data ────────────────────────────
   // useMemo is analogous to computing a value once and caching it.
@@ -209,6 +316,27 @@ export default function SessionScreen(): React.JSX.Element {
     [stopTimer, stopSpeech, announceDone, announceStep],
   );
 
+  // ── handlePrev — declared early so the BackHandler effect can reference it ──
+  //
+  // In React hooks, every `useCallback` declaration is hoisted to where it
+  // appears in the function body, NOT like C++ function definitions which are
+  // fully available throughout the translation unit. A `useEffect` that runs
+  // below a `useCallback` can reference it, but a `useEffect` above cannot.
+  //
+  // The BackHandler effect must run in the same hooks list position as the other
+  // effects (after the timer effects), but it needs `handlePrev`. To avoid a
+  // "used before declaration" TypeScript error, we declare `handlePrev` here,
+  // before the effects block.
+  //
+  // There is no runtime difference — both `useCallback` calls execute in order
+  // on every render. This is purely a declaration-ordering requirement.
+  const handlePrev = useCallback((): void => {
+    if (stepIndex === 0) {
+      return;
+    }
+    advanceToStep(stepIndex - 1, steps);
+  }, [stepIndex, steps, advanceToStep]);
+
   // ── Load session on mount ──────────────────────────────────────────────────
   useEffect(() => {
     if (id === undefined) {
@@ -230,15 +358,68 @@ export default function SessionScreen(): React.JSX.Element {
       });
   }, [id, loadSession]);
 
-  // ── Kick off the first step once steps are built ───────────────────────────
-  // This effect fires when `steps` is populated (after loadSession resolves and
-  // useMemo recomputes). We only want to initialize once — hence the guard on
-  // screenState and stepIndex.
+  // ── Kick off first step (or restore from interrupted state) ───────────────
+  //
+  // This effect fires once when `steps` is populated (after loadSession resolves
+  // and useMemo recomputes). The guard conditions ensure it only runs at the
+  // very start: screenState is EXECUTING, steps exist, and we haven't advanced
+  // beyond step 0 yet.
+  //
+  // On mount we check secure-store for an interrupted session record:
+  //   - If a matching record exists: restore the saved position (OS-kill recovery).
+  //   - If no record: start normally from step 0.
+  //
+  // The async IIFE (Immediately Invoked Function Expression) pattern is the
+  // React idiomatic way to run async code inside useEffect. useEffect callbacks
+  // cannot themselves be async (they must be synchronous or return a cleanup
+  // function). The IIFE is a workaround — analogous to spawning a coroutine
+  // inside a synchronous constructor in C++.
   useEffect(() => {
-    if (screenState === 'EXECUTING' && steps.length > 0 && stepIndex === 0 && execState === 'HOLD') {
-      advanceToStep(0, steps);
+    if (!(screenState === 'EXECUTING' && steps.length > 0 && stepIndex === 0 && execState === 'HOLD')) {
+      return;
     }
-  }, [screenState, steps, stepIndex, execState, advanceToStep]);
+
+    void (async (): Promise<void> => {
+      const saved = await getInterruptedSession();
+
+      if (saved !== null && saved.sessionId === id) {
+        // ── Restore from interrupted state (OS-kill recovery) ────────────────
+        //
+        // The app was killed while a session was in progress. The home screen
+        // detected the saved state and navigated here. We now restore to the
+        // correct position, accounting for time elapsed since backgrounding.
+        const elapsedSec = Math.floor((Date.now() - saved.backgroundedAt) / 1000);
+
+        if (saved.execState === 'RUNNING' || saved.execState === 'AUTO') {
+          // Timer was running when the app was killed. Fast-forward by the
+          // elapsed time to land at the correct step and remaining seconds.
+          const { targetIndex, targetSecondsLeft } = fastForward(
+            elapsedSec,
+            saved.stepIndex,
+            saved.secondsLeft,
+            steps,
+          );
+          advanceToStep(targetIndex, steps);
+          // advanceToStep sets secondsLeft from step.durationSec; override with
+          // the computed remainder so the timer starts from the right value.
+          setSecondsLeft(targetSecondsLeft);
+        } else {
+          // HOLD, PAUSED, REP — timer was not running. Restore exactly.
+          // No elapsed-time correction needed.
+          setStepIndex(saved.stepIndex);
+          setSecondsLeft(saved.secondsLeft);
+          setExecState(saved.execState);
+        }
+
+        // Record has been applied; delete it so it doesn't interfere with
+        // future home-screen mounts.
+        await clearInterruptedSession();
+      } else {
+        // ── No saved state: start session normally from step 0 ───────────────
+        advanceToStep(0, steps);
+      }
+    })();
+  }, [screenState, steps, stepIndex, execState, advanceToStep, id]);
 
   // ── AUTO-state timer: starts immediately without "Go" ─────────────────────
   useEffect(() => {
@@ -295,8 +476,137 @@ export default function SessionScreen(): React.JSX.Element {
       stopSpeech();
       stopTimer();
       clearCurrentSession();
+      // Belt-and-suspenders: clear any stale interrupted session record on unmount.
+      // This handles edge cases where the component unmounts without going through
+      // handleEndSession (e.g., a JS error during execution). Fire-and-forget is
+      // intentional here — we can't await inside a cleanup function.
+      void clearInterruptedSession();
     };
   }, [stopSpeech, stopTimer, clearCurrentSession]);
+
+  // ── AppState subscription: background/foreground detection ────────────────
+  //
+  // React Native's AppState is like a signal/notification in C++: it fires
+  // whenever the app transitions between 'active' (foreground), 'background'
+  // (fully backgrounded), and 'inactive' (briefly transitioning on iOS, e.g.
+  // during a phone call or when pulling down the notification shade).
+  //
+  // We only subscribe while the screen is in EXECUTING state. During LOADING
+  // and ERROR there is no session timer to correct or state to persist.
+  //
+  // The subscription is torn down (removed) when the component unmounts or
+  // when screenState leaves EXECUTING — analogous to an RAII guard that calls
+  // subscription.remove() in its destructor.
+  useEffect(() => {
+    if (screenState !== 'EXECUTING') {
+      return;
+    }
+
+    const handleAppStateChange = (nextState: AppStateStatus): void => {
+      if (nextState === 'active') {
+        // ── Returning to foreground ──────────────────────────────────────────
+        //
+        // If we have a recorded background timestamp, calculate elapsed time
+        // and apply fast-forward if the timer was running.
+        if (backgroundedAtRef.current !== null) {
+          const elapsedMs = Date.now() - backgroundedAtRef.current;
+          backgroundedAtRef.current = null;
+
+          const currentExecState = execStateRef.current;
+          if (currentExecState === 'RUNNING' || currentExecState === 'AUTO') {
+            // Timer was ticking when we backgrounded. Compute where we should be
+            // now and jump to that position.
+            const elapsedSec = Math.floor(elapsedMs / 1000);
+            const { targetIndex, targetSecondsLeft } = fastForward(
+              elapsedSec,
+              stepIndexRef.current,
+              secondsLeftRef.current,
+              steps,
+            );
+
+            if (targetIndex >= steps.length) {
+              // Session completed while backgrounded. Transition to DONE.
+              // advanceToStep with index >= length handles this case.
+              advanceToStep(targetIndex, steps);
+            } else {
+              // Jump to the computed position. advanceToStep sets secondsLeft
+              // from the step's durationSec, so we override it immediately after.
+              advanceToStep(targetIndex, steps);
+              setSecondsLeft(targetSecondsLeft);
+            }
+          }
+          // PAUSED, HOLD, REP: no real-world time has been consumed against the
+          // timer. The existing state is already correct — no changes needed.
+
+          // Re-announce the current step so the user knows where they are after
+          // returning from background. Uses the ref value so we always announce
+          // the step we actually landed on (post fast-forward).
+          announceStep(stepIndexRef.current, steps);
+
+          // The record has been applied; delete it so home screen doesn't
+          // navigate back to this session if the user exits normally later.
+          void clearInterruptedSession();
+        }
+      } else if (nextState === 'background' || nextState === 'inactive') {
+        // ── Transitioning to background / inactive ───────────────────────────
+        //
+        // Record the timestamp immediately. If the app is killed before it
+        // returns to the foreground, this record in secure-store allows the
+        // home screen to navigate back here on next launch.
+        backgroundedAtRef.current = Date.now();
+
+        const currentExecState = execStateRef.current;
+        // Only persist live execution states. DONE is excluded — a completed
+        // session exits cleanly and does not need recovery.
+        if (
+          currentExecState === 'RUNNING' ||
+          currentExecState === 'AUTO' ||
+          currentExecState === 'HOLD' ||
+          currentExecState === 'PAUSED' ||
+          currentExecState === 'REP'
+        ) {
+          void saveInterruptedSession({
+            sessionId: id ?? '',
+            stepIndex: stepIndexRef.current,
+            secondsLeft: secondsLeftRef.current,
+            execState: currentExecState,
+            backgroundedAt: backgroundedAtRef.current,
+          });
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    // Return the cleanup function — React calls this when the effect is torn
+    // down (component unmount or screenState change). Analogous to a destructor.
+    return (): void => { subscription.remove(); };
+  }, [screenState, steps, advanceToStep, announceStep, id]);
+
+  // ── Hardware back button: navigate to previous step ────────────────────────
+  //
+  // On Android, the hardware back button normally triggers stack navigation
+  // (going back to the previous screen). During a session that would be
+  // disruptive — the user might accidentally exit mid-exercise.
+  //
+  // Instead we intercept the back button and call handlePrev() (which moves
+  // to the previous step). Returning `true` from the handler tells React Native
+  // that the event has been consumed and default navigation should be suppressed.
+  //
+  // This effect runs only when screenState === 'EXECUTING'. During LOADING and
+  // ERROR, default back behavior (navigating home) is appropriate.
+  useEffect(() => {
+    if (screenState !== 'EXECUTING') {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handlePrev();
+      // Return true to consume the event and prevent default back navigation.
+      return true;
+    });
+
+    return (): void => { subscription.remove(); };
+  }, [screenState, handlePrev]);
 
   // No auto-navigate on DONE — the completion screen is shown instead.
   // The user taps "Finish" to return home. Post-session feedback (Phase 9)
@@ -363,16 +673,16 @@ export default function SessionScreen(): React.JSX.Element {
     advanceToStep(stepIndex + 1, steps);
   }, [stepIndex, steps, advanceToStep]);
 
-  // User taps "Prev" — restarts the previous step from the beginning.
-  const handlePrev = useCallback((): void => {
-    if (stepIndex === 0) {
-      return;
-    }
-    advanceToStep(stepIndex - 1, steps);
-  }, [stepIndex, steps, advanceToStep]);
+  // Note: handlePrev is declared earlier in the file (before the effects block)
+  // so that the BackHandler useEffect can reference it without a "used before
+  // declaration" error. See the comment near its declaration for details.
 
   // Step 2 of the End Session flow: offer to log the partial session or go
   // straight home. Extracted from handleEndSession to reduce nesting depth.
+  //
+  // clearInterruptedSession() is called before navigating away because the user
+  // has intentionally ended the session — we do not want home screen to redirect
+  // back here on the next mount.
   const showLogSessionAlert = useCallback((): void => {
     Alert.alert(
       'Log this session?',
@@ -381,6 +691,8 @@ export default function SessionScreen(): React.JSX.Element {
         {
           text: 'Yes, add notes',
           onPress: (): void => {
+            // Clear the interrupted record before navigating — intentional exit.
+            void clearInterruptedSession();
             if (currentSession !== null) {
               setPendingFeedback({ sessionId: currentSession.id, isComplete: false });
               router.replace('/session/feedback');
@@ -393,6 +705,8 @@ export default function SessionScreen(): React.JSX.Element {
           text: 'No, go home',
           style: 'cancel',
           onPress: (): void => {
+            // Clear the interrupted record before navigating — intentional exit.
+            void clearInterruptedSession();
             router.dismissAll();
             router.replace('/');
           },
@@ -766,6 +1080,10 @@ export default function SessionScreen(): React.JSX.Element {
         <TouchableOpacity
           style={styles.buttonPrimary}
           onPress={() => {
+            // Clear the interrupted record — session completed normally (not a
+            // crash or OS kill). This prevents home screen from navigating back
+            // here on the next launch.
+            void clearInterruptedSession();
             if (currentSession !== null) {
               setPendingFeedback({ sessionId: currentSession.id, isComplete: true });
               router.replace('/session/feedback');

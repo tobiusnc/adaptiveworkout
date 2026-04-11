@@ -76,7 +76,7 @@ async function openYouTubeSearch(searchQuery: string): Promise<void> {
 // on every render, causing unnecessary re-computations inside the library —
 // analogous to allocating a temporary array on every function call in C++.
 
-const SNAP_POINTS: ReadonlyArray<string> = ['50%', '85%'];
+const SNAP_POINTS: readonly string[] = ['50%', '85%'];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 

@@ -56,7 +56,7 @@ interface DotEntry {
 
 // Result of the useMemo that builds the dot list.
 interface DotList {
-  readonly dots: ReadonlyArray<DotEntry>;
+  readonly dots: readonly DotEntry[];
   // The index into dots[] that should be rendered as "active".
   // -1 means no active dot (e.g., before session starts or after session ends).
   readonly activeDotIndex: number;
@@ -65,7 +65,7 @@ interface DotList {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface ProgressStripProps {
-  readonly steps: ReadonlyArray<ExecutionStep>;
+  readonly steps: readonly ExecutionStep[];
   readonly stepIndex: number;
 }
 
@@ -115,9 +115,9 @@ function deriveGroupTag(step: ExecutionStep): string {
 // Returns -1 if no subsequent exercise step exists.
 
 function findNextExerciseDotIndex(
-  steps: ReadonlyArray<ExecutionStep>,
+  steps: readonly ExecutionStep[],
   stepIndex: number,
-  dots: ReadonlyArray<DotEntry>,
+  dots: readonly DotEntry[],
 ): number {
   // Find the stepArrayIndex of the first exercise step after stepIndex.
   for (let i = stepIndex + 1; i < steps.length; i++) {

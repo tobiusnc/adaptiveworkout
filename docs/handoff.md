@@ -948,3 +948,37 @@
     - After review is done: Phase 12 — Mid-session backgrounding + resume (PRD §6.7)
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-11T03:51:35Z
+**Completed this session:**
+- Phase 11 code review (code-reviewer agent) — 4 minor findings, 0 critical
+- Fixed all 4 findings:
+  1. [Minor] `docs/decisions.md` — Added entry for 90s timeout decision (PRD §5.3 specified 30s; change was made in Phase 11 session without being logged)
+  2. [Minor] `app/session/__tests__/feedback.test.tsx` — Added `mockDismissAll` assertions to Save & Done and Skip tests; both paths now verify `router.dismissAll()` is called before `router.replace('/')`
+  3. [Minor] `src/session/ProgressStrip.tsx` + `src/session/ExerciseDetailSheet.tsx` — Removed direct `export` from internal helpers (`deriveGroupTag`, `findNextExerciseDotIndex`, `formatSeconds`, `openYouTubeSearch`); replaced with `export const __testExports = { ... }` pattern to signal these are not public API; exported `GAP_STEP_KINDS` as a proper named export (needed at runtime by `[id].tsx`)
+  4. [Minor] `app/session/[id].tsx` — Removed duplicate `GAP_STEP_KINDS_SESSION` constant; now imports `GAP_STEP_KINDS` from `ProgressStrip.tsx` (single source of truth)
+- Updated test imports to use `__testExports` destructuring in `ProgressStrip.test.ts` and `ExerciseDetailSheet.test.ts`
+- All 134 tests pass; TypeScript clean; no lint errors
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- `__testExports` pattern established: internal helpers that need unit test access are unexported from the module and collected into a single `export const __testExports = { ... }` object. Tests destructure from it. This signals clearly that the functions are not public API while keeping them testable. Pattern applies to all future session/component files.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 12 — Mid-session backgrounding + resume (PRD §6.7)
+  Relevant docs sections: PRD §6.7, docs/plan.md Phase 12
+  Affected screens: app/session/[id].tsx (primary), app/index.tsx (resume prompt)
+  Watch out for:
+    - expo-dev agent for all screen/component work
+    - Requires expo background task API + foreground service for Android 15 audio policy
+    - When invoking expo-dev agent: include explicit verification criteria (symbols to grep, not just tsc)
+    - Ask which screen is affected BEFORE making any UI fix
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+    - `__testExports` pattern is now established — use it for any new internal helpers that need test access
