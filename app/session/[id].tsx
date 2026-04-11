@@ -48,6 +48,7 @@ import {
   HOLD_BEFORE_STEP_KINDS,
 } from '../../src/session/buildStepSequence';
 import type { ExecutionStep, ExecutionStepKind } from '../../src/session/buildStepSequence';
+import { fastForward } from '../../src/session/fastForward';
 import { useTTS } from '../../src/session/useTTS';
 import { GAP_STEP_KINDS, ProgressStrip } from '../../src/session/ProgressStrip';
 import { ExerciseDetailSheet } from '../../src/session/ExerciseDetailSheet';
@@ -102,82 +103,6 @@ function initialStateForStep(step: ExecutionStep): ExecutionState {
   // Timed step requiring hold-before-step.
   return 'HOLD';
 }
-
-// ─── Fast-forward helper ───────────────────────────────────────────────────────
-//
-// When the app returns to the foreground after being backgrounded during a
-// RUNNING or AUTO state, real-world time has passed but the timer did not tick.
-// This function computes where we should be in the step sequence after
-// `elapsedSec` seconds have elapsed.
-//
-// The algorithm walks the step array forward, consuming time from each step:
-//   - If the current step's remaining time is <= elapsed, we consume it and
-//     advance to the next step (and consume from that step, and so on).
-//   - We STOP advancing at a HOLD step (requires user "Go" tap) or a REP step
-//     (requires user "Done" tap) — these are interaction barriers.
-//   - If we walk off the end of the array, the session completed while backgrounded.
-//
-// In C++ terms: this is a deterministic time-advance simulation on a queue of
-// time intervals, with early-exit conditions at user-interaction barriers.
-//
-// Returns the target step index and the remaining secondsLeft for that step.
-// The caller is responsible for calling advanceToStep(targetIndex, steps) and
-// then setSecondsLeft(targetSecondsLeft) to override the duration that
-// advanceToStep would have set.
-
-interface FastForwardResult {
-  targetIndex: number;
-  targetSecondsLeft: number;
-}
-
-function fastForward(
-  elapsedSec: number,
-  currentStepIndex: number,
-  currentSecondsLeft: number,
-  allSteps: ExecutionStep[],
-): FastForwardResult {
-  let remaining = elapsedSec;
-  let idx = currentStepIndex;
-  let secsLeft = currentSecondsLeft;
-
-  while (remaining > 0 && idx < allSteps.length) {
-    if (secsLeft <= remaining) {
-      // The elapsed time consumes this entire step — advance to the next one.
-      remaining -= secsLeft;
-      idx += 1;
-
-      if (idx >= allSteps.length) {
-        // Walked off the end — session completed while backgrounded.
-        break;
-      }
-
-      const nextStep = allSteps[idx];
-      if (nextStep === undefined) {
-        break;
-      }
-      if (nextStep.durationSec === null) {
-        // REP step — user must tap "Done". Stop here.
-        break;
-      }
-      if (HOLD_BEFORE_STEP_KINDS.has(nextStep.stepKind)) {
-        // HOLD step — user must tap "Go". Stop here.
-        break;
-      }
-      // AUTO-advance step: initialize its time and continue consuming.
-      secsLeft = nextStep.durationSec;
-    } else {
-      // The elapsed time is absorbed within this step — we stay here.
-      secsLeft -= remaining;
-      remaining = 0;
-    }
-  }
-
-  return { targetIndex: idx, targetSecondsLeft: secsLeft };
-}
-
-// Exposed for unit testing via the __testExports pattern.
-// Not part of the public module API — only test files read this.
-export const __testExports = { fastForward };
 
 // ─── SessionScreen ─────────────────────────────────────────────────────────────
 

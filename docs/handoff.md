@@ -982,3 +982,37 @@
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
     - `__testExports` pattern is now established — use it for any new internal helpers that need test access
+
+---
+
+## 2026-04-11T14:21:00Z
+**Completed this session:**
+- Phase 12 — Mid-session backgrounding + resume (PRD §6.7):
+  - `src/session/interruptedSessionStore.ts` (new) — expo-secure-store wrapper with `saveInterruptedSession`, `getInterruptedSession`, `clearInterruptedSession`; `__testExports` pattern applied
+  - `app/session/[id].tsx` — timestamp-based timer correction on foreground return; AppState subscription saves/restores session state on background/foreground; OS-kill recovery on mount (reads secure-store, fast-forwards or exact-restores); hardware back button → `handlePrev`; `clearInterruptedSession` called on all intentional exit paths (End Session, normal completion, unmount); `fastForward` pure function added and exposed via `__testExports`
+  - `app/index.tsx` — on mount, checks secure-store for interrupted session and navigates directly to it (OS-kill recovery entry point)
+- Fixed 5 pre-existing ESLint warnings from Phase 11 (`ReadonlyArray<T>` → `readonly T[]` in `ProgressStrip.tsx` and `ExerciseDetailSheet.tsx`)
+- Fixed `/commit` skill (`C:/Users/James/.claude/commands/commit.md`) — "Run the linter" was ambiguous; now explicitly `npx eslint . --max-warnings=0`
+- All 134 tests pass; TypeScript clean; ESLint clean
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Background TTS (announcements firing while screen is locked) deferred to a future phase. JavaScript is suspended when RN app is backgrounded — `setInterval` and `Speech.speak()` cannot fire. True background TTS requires a native module outside Expo's managed workflow. Timer correctness is achieved via wall-clock timestamp diff on foreground return; TTS announces current step on return to foreground.
+- Interrupted session state stored in expo-secure-store (not SQLite) — ephemeral crash-recovery data, ~120 bytes, fits key-value model; adding a new SQLite table + migration for this is disproportionate.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /unit-tests for Phase 12 (fresh session) — cover `interruptedSessionStore.ts` and `fastForward` from `[id].tsx __testExports`
+  Relevant docs sections: None needed — scope is testing new functions only
+  Affected screens: app/session/[id].tsx (fastForward), src/session/interruptedSessionStore.ts
+  Watch out for:
+    - test-writer agent must run in a FRESH session (not this one)
+    - `fastForward` is exported via `export const __testExports = { fastForward }` from `[id].tsx`; import pattern: `import { __testExports } from '../[id]'` then destructure
+    - `interruptedSessionStore` functions wrap expo-secure-store — mock `expo-secure-store` in tests (same pattern as other mocked Expo modules in this project)
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+    - After unit tests: code review of Phase 12 (fresh session), then Phase 13 — Plan Chat + context record
+    - Token efficiency: avoid reading full files before writing agent prompts when the handoff "Watch out for" block already covers the structure; spot-greps + agent's own tsc output are sufficient post-agent verification
