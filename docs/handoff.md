@@ -1016,3 +1016,38 @@
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
     - After unit tests: code review of Phase 12 (fresh session), then Phase 13 — Plan Chat + context record
     - Token efficiency: avoid reading full files before writing agent prompts when the handoff "Watch out for" block already covers the structure; spot-greps + agent's own tsc output are sufficient post-agent verification
+
+---
+
+## 2026-04-11T14:28:28Z
+**Completed this session:**
+- Extracted `fastForward` from `app/session/[id].tsx` to `src/session/fastForward.ts` (pure function, no React/RN/expo-router deps — extraction required by /unit-tests rule before testing screen files)
+  - `FastForwardResult` interface moved to new module; `[id].tsx` now imports `fastForward` from there
+  - `__testExports` removed from `[id].tsx` (no longer needed; function is directly testable in its own module)
+- `src/session/__tests__/interruptedSessionStore.test.ts` — 10 tests:
+  - `saveInterruptedSession`: serializes to JSON + calls setItemAsync with correct key; propagates rejection
+  - `getInterruptedSession`: null when no entry; parsed state on valid JSON; null on malformed JSON; null on missing fields; null on non-object JSON; calls correct key
+  - `clearInterruptedSession`: calls deleteItemAsync with correct key; propagates rejection
+- `src/session/__tests__/fastForward.test.ts` — 18 tests:
+  - Zero elapsed; partial consumption; boundary-1; exact boundary advance; multi-step skip; mid-sequence start; all steps consumed (walk-off-end × 3 variants); HOLD barrier × 5 kinds; REP barrier × 2 variants
+- All 162 tests pass (was 134); TypeScript clean; ESLint clean
+- Coverage: `interruptedSessionStore.ts` 100%; `fastForward.ts` 95%/91.66% branch (line 60: `nextStep === undefined` defensive guard — unreachable with typed input)
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- `fastForward` extracted to `src/session/fastForward.ts` per /unit-tests extraction rule: screen files (app/**) must not be imported in tests; pure functions with no RN/expo-router deps are extracted first.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /review in a fresh session — code review of Phase 12 (interruptedSessionStore, fastForward extraction, [id].tsx AppState/backgrounding changes, index.tsx OS-kill recovery)
+  Relevant docs sections: PRD §6.7
+  Affected screens: app/session/[id].tsx, app/index.tsx
+  Watch out for:
+    - code-reviewer agent must run in a FRESH session (not this one)
+    - After review: Phase 13 — Plan Chat + context record
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+    - `__testExports` pattern: fastForward.ts no longer uses it (function is public); interruptedSessionStore.ts still uses it for STORE_KEY

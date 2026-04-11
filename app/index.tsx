@@ -5,6 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   FlatList,
@@ -17,7 +18,7 @@ import { useRouter } from 'expo-router';
 import { useAppStore } from '../src/store/useAppStore';
 import type { Session } from '../src/types/index';
 import { colors, spacing, typography } from '../src/styles/tokens';
-import { getInterruptedSession } from '../src/session/interruptedSessionStore';
+import { getInterruptedSession, clearInterruptedSession } from '../src/session/interruptedSessionStore';
 
 export default function HomeScreen(): React.JSX.Element {
   const router = useRouter();
@@ -44,7 +45,21 @@ export default function HomeScreen(): React.JSX.Element {
   useEffect(() => {
     getInterruptedSession().then((saved) => {
       if (saved !== null) {
-        router.push(`/session/${saved.sessionId}`);
+        Alert.alert(
+          'Resume Session?',
+          'You have an unfinished workout session.',
+          [
+            {
+              text: 'End',
+              style: 'destructive',
+              onPress: () => { void clearInterruptedSession(); },
+            },
+            {
+              text: 'Resume',
+              onPress: () => { router.push(`/session/${saved.sessionId}`); },
+            },
+          ],
+        );
       }
     }).catch(() => {
       // getInterruptedSession never throws (parse errors return null), but

@@ -67,18 +67,23 @@ export async function getInterruptedSession(): Promise<InterruptedSessionState |
   }
   try {
     const parsed: unknown = JSON.parse(serialized);
-    // Type guard: ensure the parsed object has the required fields.
-    // This protects against schema version mismatches on app update.
+    // Type guard: ensure the parsed object has the required fields with the
+    // correct types. This protects against schema version mismatches on app
+    // update and against corrupted storage containing wrong-typed values.
     if (
       typeof parsed === 'object' &&
-      parsed !== null &&
-      'sessionId' in parsed &&
-      'stepIndex' in parsed &&
-      'secondsLeft' in parsed &&
-      'execState' in parsed &&
-      'backgroundedAt' in parsed
+      parsed !== null
     ) {
-      return parsed as InterruptedSessionState;
+      const p = parsed as Record<string, unknown>;
+      if (
+        typeof p['sessionId'] === 'string' &&
+        typeof p['stepIndex'] === 'number' &&
+        typeof p['secondsLeft'] === 'number' &&
+        typeof p['execState'] === 'string' &&
+        typeof p['backgroundedAt'] === 'number'
+      ) {
+        return parsed as InterruptedSessionState;
+      }
     }
     // Missing required fields — treat as no session.
     return null;

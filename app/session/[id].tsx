@@ -491,7 +491,7 @@ export default function SessionScreen(): React.JSX.Element {
           currentExecState === 'REP'
         ) {
           void saveInterruptedSession({
-            sessionId: id ?? '',
+            sessionId: id as string,
             stepIndex: stepIndexRef.current,
             secondsLeft: secondsLeftRef.current,
             execState: currentExecState,
