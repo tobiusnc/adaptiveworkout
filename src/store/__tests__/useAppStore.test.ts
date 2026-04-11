@@ -92,7 +92,8 @@ function buildMockService(): jest.Mocked<StorageService> {
     saveContextRecord:    jest.fn().mockResolvedValue(undefined),
     getContextRecord:     jest.fn().mockResolvedValue(null),
     updateContextRecord:  jest.fn().mockResolvedValue(undefined),
-    deleteContextRecord:  jest.fn().mockResolvedValue(undefined),
+    deleteContextRecord:        jest.fn().mockResolvedValue(undefined),
+    applyPlanModification:      jest.fn().mockResolvedValue(undefined),
   };
 }
 

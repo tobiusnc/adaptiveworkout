@@ -157,21 +157,178 @@
 ---
 
 ## Phase 13 — Plan Chat + Context Record + summarizeContextRecord
+# Generated: 2026-04-11
+# Status: IN PROGRESS
+
+### Phase 13.1 — Schema Update
 **Scope:**
-- Plan Chat interface (PRD §4.3):
-  - Persistent entry point from home screen
-  - AI opens with acknowledgement of current plan + invitation to describe change
-  - modifyPlan() AI function: current plan + context record + conversation → diff object + plain-language summary
-  - Before/after preview scoped to only affected sessions/exercises
-  - "Apply Change" / "Don't Apply" buttons; no write until confirmed
-  - Error state: user-friendly message, plan not modified
-- Plan context record (PRD §4.4):
-  - AI appends to record when preference/constraint established
-  - Record visible to user
-  - summarizeContextRecord() AI function: condenses record when large (Haiku model)
-- Plan iteration before acceptance (PRD §2.3, deferred from Phase 6):
-  - After generatePlan draft, allow natural language iteration before savePlanFromDraft
-**Done condition:** User can chat, see a before/after diff, apply or reject a change; context record persists across sessions.
+- Update `docs/schema.md` to v1.5:
+  - Add `recentFeedback: SessionFeedback[]` to `ModifyPlanInput`
+  - Add comment to `contextRecordUpdate` clarifying it is full replacement content (not a delta)
+- Add v1.5 entry to the schema Change Log
+
+**Agent:** Claude Code (docs edit only)
+**Done condition:** `docs/schema.md` updated and version bumped to v1.5.
+
+---
+
+### Phase 13.2 — AI Layer: `modifyPlan`
+**Scope:**
+- Create `src/ai/prompts/modifyPlan.ts` — system prompt + prompt version constant
+  - Instructs AI to read context record, resolve scope (program-wide / single session /
+    ask one clarifying question if ambiguous), call `submit_modification` tool only when
+    proposing changes (not for clarifications), and return `contextRecordUpdate` with
+    full replacement content when a meaningful new preference is established; null otherwise
+- Create `src/ai/modifyPlan.ts`:
+  - `ModifyPlanResult` discriminated union:
+    `{ type: 'clarification'; message: string }` | `{ type: 'proposal'; output: ModifyPlanOutput }`
+  - `ModifyPlanError` error class
+  - Zod validation schema for `ModifyPlanOutput`
+  - `submit_modification` tool definition (JSON Schema matching `ModifyPlanOutput`)
+  - `tool_choice: { type: 'auto' }` — AI chooses text (clarification) or tool call (proposal)
+  - Response type detection: `tool_use` block → proposal path; `text` block only → clarification path
+  - Input assembly from `ModifyPlanInput` (current plan, sessions, exercises, context record,
+    conversation, recent feedback)
+  - Validation-retry loop (max 2 retries, proposal path only)
+  - PRD §5.3 contract: async, 30 000 ms timeout, one network retry with 2s backoff on
+    timeout/5xx, token logging (model + promptVersion + inputTokens + outputTokens),
+    error logging; throws `ModifyPlanError` when all retries fail
+  - Uses `REASONING_MODEL` from `src/ai/models.ts`
+
+**Agent:** ai-layer
+**Done condition:** `modifyPlan.ts` compiles; all PRD §5.3 items present; discriminated union
+return type handles both clarification and proposal paths; TypeScript clean.
+
+---
+
+### Phase 13.3 — AI Layer: `summarizeContextRecord`
+**Scope:**
+- Create `src/ai/prompts/summarizeContextRecord.ts` — system prompt + prompt version constant
+  - Instructs AI to condense context record, preserving high-signal persistent facts
+    (physical limitations, equipment constraints, strong preferences) and dropping
+    transient or superseded entries; return full replacement content
+- Create `src/ai/summarizeContextRecord.ts`:
+  - `SummarizeContextRecordError` error class
+  - Zod validation schema for `SummarizeContextRecordOutput`
+  - `submit_summary` tool definition; `tool_choice: { type: 'tool' }` (always structured)
+  - Input assembly from `SummarizeContextRecordInput`
+  - Validation-retry loop (max 2 retries)
+  - PRD §5.3 contract: async, 30 000 ms timeout, one network retry, token logging, error logging
+  - Uses `SUMMARIZATION_MODEL` (claude-haiku-4-5-20251001)
+  - Fallback: throw `SummarizeContextRecordError`; caller skips condensation and retains
+    existing record (non-blocking failure)
+
+**Agent:** ai-layer (continue Phase 13.2 session)
+**Done condition:** `summarizeContextRecord.ts` compiles; uses `SUMMARIZATION_MODEL`;
+all PRD §5.3 items present; TypeScript clean.
+
+---
+
+### Phase 13.4 — Storage: `applyPlanModification`
+**Scope:**
+- Add `applyPlanModification(planId: string, output: ModifyPlanOutput): Promise<void>`
+  to `StorageService` interface
+- Implement in `OpSqliteStorageService` as a single atomic SQLite transaction:
+  - If `output.planChanges` non-null: read existing Plan, merge partial fields, write back
+  - For each `SessionChange`:
+    - `'add'`: generate new UUID, insert Session row + exercises from `sessionDraft`
+    - `'update'`: read existing Session by `sessionId`, merge `Partial<SessionDraft>`, write back;
+      apply nested `exerciseChanges`
+    - `'remove'`: delete all Exercise rows for `sessionId`, then delete Session row
+  - For each `ExerciseChange` (within an update session):
+    - `'add'`: generate new UUID, insert Exercise row
+    - `'update'`: read existing Exercise by `exerciseId`, merge `Partial<ExerciseDraft>`, write back
+    - `'remove'`: delete Exercise row
+  - If `output.contextRecordUpdate` non-null:
+    - `getContextRecord(planId)` → exists: `updateContextRecord`; null: `saveContextRecord`
+  - Full rollback on any failure; throw `StorageError('QUERY_FAILED')` on DB error
+
+**Agent:** Claude Code (pure TypeScript storage layer — no RN runtime calls)
+**Done condition:** Interface updated; implementation compiles; TypeScript clean.
+
+---
+
+### Phase 13.5 — UI: Plan Chat Screen
+**Scope:**
+- Create `app/plan-chat.tsx`:
+  - Ephemeral `ConversationMessage[]` state — initialised on mount, not persisted
+  - On mount: display hardcoded opening message acknowledging the active plan name and
+    inviting the user to describe what they want to change (no API call)
+  - Scrollable message thread (user messages right-aligned, AI messages left-aligned)
+  - Text input + Send button at bottom
+  - On Send:
+    - Append user message to conversation
+    - Call `modifyPlan` with current plan data, sessions, exercises, context record,
+      conversation, and recent feedback (last 5 records)
+    - Show loading indicator during call
+    - On `type === 'clarification'`: append AI message to thread, await next input
+    - On `type === 'proposal'`: show before/after preview inline (see below)
+    - On error: show user-friendly error message in thread; do not modify plan
+  - Before/after preview (inline in thread below AI summary message):
+    - Primary: render affected sessions/exercises as before/after from
+      `sessionChanges` / `planChanges`
+    - Fallback: display `output.summary` text only if diff rendering is impractical
+    - "Apply Change" button and "Don't Apply" button
+  - On "Apply Change":
+    - Call `applyPlanModification`
+    - If `contextRecordUpdate !== null` and new `content.length > 3000`:
+      call `summarizeContextRecord` and update context record with condensed result;
+      on `SummarizeContextRecordError`: log and skip (non-blocking)
+    - Navigate back to home screen
+  - On "Don't Apply": dismiss preview, conversation continues
+
+**Agent:** expo-dev
+**Done condition:** Screen renders; opening message on mount; multi-turn clarification works;
+proposal preview shows Apply/Don't Apply; Apply writes to store and navigates home;
+all loading/error states handled.
+
+---
+
+### Phase 13.6 — UI: FAB + Navigation Wiring
+**Scope:**
+- Create `src/components/PlanChatButton.tsx` — reusable FAB-style button:
+  - Visible only when an active plan exists
+  - Taps navigate to `plan-chat` route via Expo Router
+  - Designed for reuse across multiple screens in future
+- Add `PlanChatButton` to `app/index.tsx` (home screen)
+- `plan-chat` route is already registered by the file created in Phase 13.5
+
+**Agent:** expo-dev (continue Phase 13.5 session)
+**Done condition:** FAB renders on home screen when active plan exists; hidden when no plan;
+tapping opens Plan Chat screen.
+
+---
+
+### Phase 13.7 — Tests
+**Scope:**
+- `src/ai/__tests__/modifyPlan.test.ts`:
+  - Clarification path: text-only response → `{ type: 'clarification' }`
+  - Proposal path: tool_use response → validates and returns `{ type: 'proposal' }`
+  - Validation retry: first response fails Zod, second succeeds
+  - Network retry: first call throws AbortError, second succeeds
+  - All retries exhausted → throws `ModifyPlanError`
+  - Token logging called on each successful API response
+- `src/ai/__tests__/summarizeContextRecord.test.ts`:
+  - Happy path: returns condensed content
+  - Validation retry on malformed response
+  - All retries exhausted → throws `SummarizeContextRecordError`
+- Storage tests for `applyPlanModification`:
+  - Plan-only change
+  - Session update with exercise changes
+  - Session add (new UUID assigned)
+  - Session remove (cascades to exercises)
+  - Context record upsert (create when absent, update when present)
+  - Transaction rollback on mid-apply failure
+- All existing 162 tests continue to pass
+
+**Agent:** test-writer (FRESH session always)
+**Done condition:** All new tests pass; no regressions; TypeScript clean.
+
+---
+
+**Phase 13 overall done condition:** User can open Plan Chat from home screen, conduct a
+multi-turn conversation, see a before/after diff, apply or reject a change, and have the
+context record persist and auto-condense across sessions.
 
 ---
 

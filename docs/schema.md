@@ -1,5 +1,5 @@
 # Schema — Adaptive Workout App
-# Version: 1.1
+# Version: 1.5
 # =============================================================
 # Single source of truth for all data structures.
 # TypeScript interfaces are used throughout — closest to implementation.
@@ -12,6 +12,7 @@
 ### v1.2 — 2026-04-03 — JD: removed future logging slots from Exercise; logging will be a separate entity (ExerciseLog) referencing exerciseId
 ### v1.3 — 2026-04-03 — JD: added 'mobility' and 'stretching' to SessionType; these session types have no circuit structure (sequential timed holds only)
 ### v1.4 — 2026-04-03 — JD: added additionalContext to UserProfile for open-ended onboarding field
+### v1.5 — 2026-04-11 — JD + Claude: added recentFeedback to ModifyPlanInput; clarified contextRecordUpdate is full replacement content
 
 ---
 
@@ -197,6 +198,7 @@ interface ModifyPlanInput {
   currentSessions: Session[];
   currentExercises: Exercise[];
   contextRecord: PlanContextRecord;
+  recentFeedback: SessionFeedback[];   // recent post-session feedback comments; may be empty
   conversation: ConversationMessage[]; // current modification conversation only; no prior session history
 }
 
@@ -271,7 +273,7 @@ interface ModifyPlanOutput {
   summary: string;                   // plain-language rationale shown to user in before/after preview
   planChanges: Partial<PlanDraft> | null;
   sessionChanges: SessionChange[];
-  contextRecordUpdate: string | null; // new content for PlanContextRecord; null if no update needed
+  contextRecordUpdate: string | null; // full replacement content for PlanContextRecord (not a delta); null if no update needed
 }
 
 interface SessionChange {

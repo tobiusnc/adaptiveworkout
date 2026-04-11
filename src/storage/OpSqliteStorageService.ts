@@ -30,6 +30,7 @@ import type {
   FitnessLevel,
   SessionType,
   StepType,
+  ModifyPlanOutput,
 } from '../types/index';
 
 import type { StorageService } from './StorageService';
@@ -1170,6 +1171,311 @@ export class OpSqliteStorageService implements StorageService {
         `Failed to delete PlanContextRecord id=${id}`,
         'QUERY_FAILED',
         cause,
+      );
+    }
+  }
+
+  // ── Plan Modification ────────────────────────────────────────────────────────
+
+  // Applies a ModifyPlanOutput diff atomically. All changes (plan, sessions,
+  // exercises, context record) are written in a single SQLite transaction.
+  // Full rollback on any failure — the DB is never left in a partial state.
+  // Called only after the user has confirmed the before/after preview.
+  async applyPlanModification(planId: string, output: ModifyPlanOutput): Promise<void> {
+    const db = this.assertDb();
+    await db.execute('BEGIN');
+    try {
+      await this.applyPlanChanges(db, planId, output);
+      await this.applySessionChanges(db, planId, output);
+      await this.applyContextRecordUpdate(db, planId, output.contextRecordUpdate);
+      await db.execute('COMMIT');
+    } catch (cause) {
+      try { await db.execute('ROLLBACK'); } catch (rollbackCause) {
+        logger.error('[applyPlanModification] ROLLBACK failed:', { error: String(rollbackCause) });
+      }
+      throw new StorageError(
+        'Failed to apply plan modification (transaction rolled back)',
+        'QUERY_FAILED',
+        cause,
+      );
+    }
+  }
+
+  private async applyPlanChanges(
+    db: OPSQLiteDB,
+    planId: string,
+    output: ModifyPlanOutput,
+  ): Promise<void> {
+    if (output.planChanges === null) {
+      return;
+    }
+    const changes = output.planChanges;
+    const now = new Date().toISOString();
+    // Build SET clauses only for fields present in the partial diff.
+    // We use individual UPDATE calls for each changed top-level field group
+    // to avoid reading the full row and re-writing all fields.
+    if (changes.name !== undefined) {
+      await db.execute('UPDATE plan SET name=?, updated_at=? WHERE id=?', [changes.name, now, planId]);
+    }
+    if (changes.description !== undefined) {
+      await db.execute('UPDATE plan SET description=?, updated_at=? WHERE id=?', [changes.description, now, planId]);
+    }
+    if (changes.config !== undefined) {
+      const c = changes.config;
+      if (c.defaultWorkSec !== undefined) {
+        await db.execute('UPDATE plan SET default_work_sec=?, updated_at=? WHERE id=?', [c.defaultWorkSec, now, planId]);
+      }
+      if (c.restBetweenExSec !== undefined) {
+        await db.execute('UPDATE plan SET rest_between_ex_sec=?, updated_at=? WHERE id=?', [c.restBetweenExSec, now, planId]);
+      }
+      if (c.stretchBetweenRoundsSec !== undefined) {
+        await db.execute('UPDATE plan SET stretch_between_rounds_sec=?, updated_at=? WHERE id=?', [c.stretchBetweenRoundsSec, now, planId]);
+      }
+      if (c.restBetweenRoundsSec !== undefined) {
+        await db.execute('UPDATE plan SET rest_between_rounds_sec=?, updated_at=? WHERE id=?', [c.restBetweenRoundsSec, now, planId]);
+      }
+      if (c.warmupDelayBetweenItemsSec !== undefined) {
+        await db.execute('UPDATE plan SET warmup_delay_between_items_sec=?, updated_at=? WHERE id=?', [c.warmupDelayBetweenItemsSec, now, planId]);
+      }
+      if (c.cooldownDelayBetweenItemsSec !== undefined) {
+        await db.execute('UPDATE plan SET cooldown_delay_between_items_sec=?, updated_at=? WHERE id=?', [c.cooldownDelayBetweenItemsSec, now, planId]);
+      }
+    }
+  }
+
+  private async applySessionChanges(
+    db: OPSQLiteDB,
+    planId: string,
+    output: ModifyPlanOutput,
+  ): Promise<void> {
+    for (const change of output.sessionChanges) {
+      if (change.action === 'remove') {
+        if (change.sessionId === null) {
+          throw new StorageError(
+            'SessionChange with action=remove must have a non-null sessionId',
+            'QUERY_FAILED',
+          );
+        }
+        await db.execute('DELETE FROM exercise WHERE session_id=?', [change.sessionId]);
+        await db.execute('DELETE FROM session WHERE id=?', [change.sessionId]);
+      } else if (change.action === 'add') {
+        if (change.sessionDraft === null) {
+          throw new StorageError(
+            'SessionChange with action=add must have a non-null sessionDraft',
+            'QUERY_FAILED',
+          );
+        }
+        const newSessionId = Crypto.randomUUID();
+        const draft = change.sessionDraft;
+        await db.execute(
+          `INSERT INTO session (
+            id, schema_version, plan_id, name, type, order_in_plan, rounds,
+            estimated_duration_minutes, work_sec, rest_between_ex_sec,
+            stretch_between_rounds_sec, rest_between_rounds_sec,
+            warmup_delay_between_items_sec, cooldown_delay_between_items_sec,
+            between_round_exercise_id
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [
+            newSessionId, 1, planId,
+            draft.name ?? '', draft.type ?? 'resistance',
+            draft.orderInPlan ?? 0, draft.rounds ?? 1,
+            draft.estimatedDurationMinutes ?? 0,
+            draft.workSec ?? 40, draft.restBetweenExSec ?? 20,
+            draft.stretchBetweenRoundsSec ?? 30, draft.restBetweenRoundsSec ?? 90,
+            draft.warmupDelayBetweenItemsSec ?? 5, draft.cooldownDelayBetweenItemsSec ?? 5,
+            null,
+          ],
+        );
+        for (const exChange of change.exerciseChanges) {
+          if (exChange.action === 'add' && exChange.exerciseDraft !== null) {
+            await OpSqliteStorageService.insertExerciseDraft(db, newSessionId, exChange.exerciseDraft);
+          }
+        }
+      } else {
+        // action === 'update'
+        if (change.sessionId === null) {
+          throw new StorageError(
+            'SessionChange with action=update must have a non-null sessionId',
+            'QUERY_FAILED',
+          );
+        }
+        if (change.sessionDraft !== null) {
+          await OpSqliteStorageService.applySessionDraftUpdate(db, change.sessionId, change.sessionDraft);
+        }
+        for (const exChange of change.exerciseChanges) {
+          await OpSqliteStorageService.applyExerciseChange(db, change.sessionId, exChange);
+        }
+      }
+    }
+  }
+
+  private static async applySessionDraftUpdate(
+    db: OPSQLiteDB,
+    sessionId: string,
+    draft: Partial<import('../types/index').SessionDraft>,
+  ): Promise<void> {
+    if (draft.name !== undefined) {
+      await db.execute('UPDATE session SET name=? WHERE id=?', [draft.name, sessionId]);
+    }
+    if (draft.type !== undefined) {
+      await db.execute('UPDATE session SET type=? WHERE id=?', [draft.type, sessionId]);
+    }
+    if (draft.orderInPlan !== undefined) {
+      await db.execute('UPDATE session SET order_in_plan=? WHERE id=?', [draft.orderInPlan, sessionId]);
+    }
+    if (draft.rounds !== undefined) {
+      await db.execute('UPDATE session SET rounds=? WHERE id=?', [draft.rounds, sessionId]);
+    }
+    if (draft.estimatedDurationMinutes !== undefined) {
+      await db.execute('UPDATE session SET estimated_duration_minutes=? WHERE id=?', [draft.estimatedDurationMinutes, sessionId]);
+    }
+    if (draft.workSec !== undefined) {
+      await db.execute('UPDATE session SET work_sec=? WHERE id=?', [draft.workSec, sessionId]);
+    }
+    if (draft.restBetweenExSec !== undefined) {
+      await db.execute('UPDATE session SET rest_between_ex_sec=? WHERE id=?', [draft.restBetweenExSec, sessionId]);
+    }
+    if (draft.stretchBetweenRoundsSec !== undefined) {
+      await db.execute('UPDATE session SET stretch_between_rounds_sec=? WHERE id=?', [draft.stretchBetweenRoundsSec, sessionId]);
+    }
+    if (draft.restBetweenRoundsSec !== undefined) {
+      await db.execute('UPDATE session SET rest_between_rounds_sec=? WHERE id=?', [draft.restBetweenRoundsSec, sessionId]);
+    }
+    if (draft.warmupDelayBetweenItemsSec !== undefined) {
+      await db.execute('UPDATE session SET warmup_delay_between_items_sec=? WHERE id=?', [draft.warmupDelayBetweenItemsSec, sessionId]);
+    }
+    if (draft.cooldownDelayBetweenItemsSec !== undefined) {
+      await db.execute('UPDATE session SET cooldown_delay_between_items_sec=? WHERE id=?', [draft.cooldownDelayBetweenItemsSec, sessionId]);
+    }
+  }
+
+  private static async applyExerciseChange(
+    db: OPSQLiteDB,
+    sessionId: string,
+    change: import('../types/index').ExerciseChange,
+  ): Promise<void> {
+    if (change.action === 'remove') {
+      if (change.exerciseId === null) {
+        throw new StorageError(
+          'ExerciseChange with action=remove must have a non-null exerciseId',
+          'QUERY_FAILED',
+        );
+      }
+      await db.execute('DELETE FROM exercise WHERE id=?', [change.exerciseId]);
+    } else if (change.action === 'add') {
+      if (change.exerciseDraft === null) {
+        throw new StorageError(
+          'ExerciseChange with action=add must have a non-null exerciseDraft',
+          'QUERY_FAILED',
+        );
+      }
+      await OpSqliteStorageService.insertExerciseDraft(db, sessionId, change.exerciseDraft);
+    } else {
+      // action === 'update'
+      if (change.exerciseId === null) {
+        throw new StorageError(
+          'ExerciseChange with action=update must have a non-null exerciseId',
+          'QUERY_FAILED',
+        );
+      }
+      if (change.exerciseDraft !== null) {
+        await OpSqliteStorageService.applyExerciseDraftUpdate(db, change.exerciseId, change.exerciseDraft);
+      }
+    }
+  }
+
+  private static async insertExerciseDraft(
+    db: OPSQLiteDB,
+    sessionId: string,
+    draft: Partial<import('../types/index').ExerciseDraft>,
+  ): Promise<void> {
+    await db.execute(
+      `INSERT INTO exercise (
+        id, schema_version, session_id, phase, order_num, name, type,
+        duration_sec, reps, weight, equipment, form_cues,
+        youtube_search_query, is_bilateral
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        Crypto.randomUUID(), 1, sessionId,
+        draft.phase ?? null,
+        draft.order ?? 0,
+        draft.name ?? '',
+        draft.type ?? 'timed',
+        draft.durationSec ?? null,
+        draft.reps ?? null,
+        draft.weight ?? null,
+        draft.equipment ?? '',
+        JSON.stringify(draft.formCues ?? []),
+        draft.youtubeSearchQuery ?? null,
+        draft.isBilateral ? 1 : 0,
+      ],
+    );
+  }
+
+  private static async applyExerciseDraftUpdate(
+    db: OPSQLiteDB,
+    exerciseId: string,
+    draft: Partial<import('../types/index').ExerciseDraft>,
+  ): Promise<void> {
+    if (draft.name !== undefined) {
+      await db.execute('UPDATE exercise SET name=? WHERE id=?', [draft.name, exerciseId]);
+    }
+    if (draft.phase !== undefined) {
+      await db.execute('UPDATE exercise SET phase=? WHERE id=?', [draft.phase, exerciseId]);
+    }
+    if (draft.order !== undefined) {
+      await db.execute('UPDATE exercise SET order_num=? WHERE id=?', [draft.order, exerciseId]);
+    }
+    if (draft.type !== undefined) {
+      await db.execute('UPDATE exercise SET type=? WHERE id=?', [draft.type, exerciseId]);
+    }
+    if (draft.durationSec !== undefined) {
+      await db.execute('UPDATE exercise SET duration_sec=? WHERE id=?', [draft.durationSec, exerciseId]);
+    }
+    if (draft.reps !== undefined) {
+      await db.execute('UPDATE exercise SET reps=? WHERE id=?', [draft.reps, exerciseId]);
+    }
+    if (draft.weight !== undefined) {
+      await db.execute('UPDATE exercise SET weight=? WHERE id=?', [draft.weight, exerciseId]);
+    }
+    if (draft.equipment !== undefined) {
+      await db.execute('UPDATE exercise SET equipment=? WHERE id=?', [draft.equipment, exerciseId]);
+    }
+    if (draft.formCues !== undefined) {
+      await db.execute('UPDATE exercise SET form_cues=? WHERE id=?', [JSON.stringify(draft.formCues), exerciseId]);
+    }
+    if (draft.youtubeSearchQuery !== undefined) {
+      await db.execute('UPDATE exercise SET youtube_search_query=? WHERE id=?', [draft.youtubeSearchQuery, exerciseId]);
+    }
+    if (draft.isBilateral !== undefined) {
+      await db.execute('UPDATE exercise SET is_bilateral=? WHERE id=?', [draft.isBilateral ? 1 : 0, exerciseId]);
+    }
+  }
+
+  private async applyContextRecordUpdate(
+    db: OPSQLiteDB,
+    planId: string,
+    contextRecordUpdate: string | null,
+  ): Promise<void> {
+    if (contextRecordUpdate === null) {
+      return;
+    }
+    const now = new Date().toISOString();
+    const result = await db.execute(
+      'SELECT id FROM plan_context_record WHERE plan_id=? LIMIT 1',
+      [planId],
+    );
+    const rows = (result.rows ?? []) as unknown as { id: string }[];
+    if (rows.length > 0) {
+      await db.execute(
+        'UPDATE plan_context_record SET content=?, updated_at=? WHERE plan_id=?',
+        [contextRecordUpdate, now, planId],
+      );
+    } else {
+      await db.execute(
+        `INSERT INTO plan_context_record (id, schema_version, plan_id, content, updated_at)
+         VALUES (?,?,?,?,?)`,
+        [Crypto.randomUUID(), 1, planId, contextRecordUpdate, now],
       );
     }
   }

@@ -15,6 +15,7 @@ import type {
   Exercise,
   SessionFeedback,
   PlanContextRecord,
+  ModifyPlanOutput,
 } from '../types/index';
 
 export interface StorageService {
@@ -83,4 +84,12 @@ export interface StorageService {
   getContextRecord(planId: string): Promise<PlanContextRecord | null>;
   updateContextRecord(record: PlanContextRecord): Promise<void>;
   deleteContextRecord(id: string): Promise<void>;
+
+  // ── Plan Modification ────────────────────────────────────────────────────────
+
+  // Atomic application of a ModifyPlanOutput diff to the DB.
+  // All plan, session, exercise, and context record changes are written in a
+  // single SQLite transaction — full rollback on any failure.
+  // Called only after the user confirms the before/after preview.
+  applyPlanModification(planId: string, output: ModifyPlanOutput): Promise<void>;
 }

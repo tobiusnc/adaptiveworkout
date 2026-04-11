@@ -178,6 +178,7 @@ export interface ModifyPlanInput {
   currentSessions: Session[];
   currentExercises: Exercise[];
   contextRecord: PlanContextRecord;
+  recentFeedback: SessionFeedback[];   // recent post-session feedback comments; may be empty
   conversation: ConversationMessage[]; // current modification conversation only; no prior session history
 }
 

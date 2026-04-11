@@ -1051,3 +1051,30 @@
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
     - `__testExports` pattern: fastForward.ts no longer uses it (function is public); interruptedSessionStore.ts still uses it for STORE_KEY
+
+---
+
+## 2026-04-11T15:00:00Z
+**Completed this session:**
+- Phase 12 code review (code-reviewer agent) — 3 findings addressed:
+  - **[MAJOR]** `app/index.tsx` — Added "Resume Session?" `Alert.alert` with Yes/End options before navigating to interrupted session (PRD §6.7 requirement; was navigating directly without prompt)
+  - **[MINOR]** `src/session/interruptedSessionStore.ts:72-82` — Strengthened type guard in `getInterruptedSession` to validate field *types* (not just presence) using `typeof` checks on each field; prevents corrupted/wrong-typed storage from being cast as `InterruptedSessionState`
+  - **[MINOR]** `app/session/[id].tsx:494` — Replaced `id ?? ''` with `id as string` in `saveInterruptedSession` call; the early guard at line 267 already ensures `id` is defined here, so the empty-string fallback was misleading
+- All 162 tests pass; TypeScript clean; ESLint clean
+
+**In progress:** Nothing.
+
+**Decisions made:** None new — fixes implement existing PRD §6.7 requirement and tighten existing defensive code.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 13 — Plan Chat + context record (PRD §7)
+  Relevant docs sections: PRD §7, schema.md (ChatMessage / context record types)
+  Affected screens: New screen likely needed for chat UI; app/index.tsx may get a chat entry point
+  Watch out for:
+    - Phase 13 is AI-layer work — route through ai-layer agent for any Anthropic API / prompt work
+    - Phase 13 is also Expo/RN UI work — route through expo-dev agent for screen/component work
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
