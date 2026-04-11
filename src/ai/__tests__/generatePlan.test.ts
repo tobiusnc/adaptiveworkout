@@ -255,7 +255,7 @@ describe('generatePlan — token logging', () => {
 describe('generatePlan — network retry', () => {
   it('retries once on AbortError (timeout) and succeeds on the second call', async () => {
     jest.useFakeTimers();
-    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
     mockMessagesCreate
       .mockRejectedValueOnce(abortError)
       .mockResolvedValueOnce(makeSuccessResponse());
@@ -285,7 +285,7 @@ describe('generatePlan — network retry', () => {
 
   it('throws GeneratePlanError after both network attempts time out', async () => {
     jest.useFakeTimers();
-    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
     mockMessagesCreate.mockRejectedValue(abortError);
 
     const p = generatePlan(FIXTURE_INPUT);

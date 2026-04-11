@@ -795,3 +795,124 @@
     - crypto.randomUUID() is available in Hermes (Expo SDK 55) — no uuid package needed
     - expo-dev-client required; cannot test on Expo Go
     - The 3 uncovered .catch() lines in useTTS.ts are intentional — not a gap
+
+
+---
+
+## 2026-04-07T22:17:40Z
+**Completed this session:**
+- Phase 10 unit tests: added 11 new tests to `src/store/__tests__/useAppStore.test.ts` (total now 24)
+  - `setPendingFeedback` (3 tests): sets value, preserves isComplete: false, clears to null
+  - `saveFeedback` (8 tests): happy path with correct SessionFeedback shape, clears pendingFeedback after save, passes commentText: null, handles isComplete: false, throws when storageService is null, throws when pendingFeedback is null, propagates storageService rejection, does not clear pendingFeedback on rejection
+
+**In progress:** Nothing.
+
+**Decisions made:** None new.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /review in a fresh session (code review of Phase 10 work)
+    Files to review: src/store/useAppStore.ts (saveFeedback, setPendingFeedback),
+    app/session/feedback.tsx, app/session/[id].tsx (renderComplete + handleEndSession changes),
+    src/store/__tests__/useAppStore.test.ts (new tests)
+  Relevant docs sections: PRD §6 (feedback screen acceptance criteria)
+  Watch out for:
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null in assemblePlanEntities) — not a Phase 10 gap
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional — not a gap
+    - After review: next build task is Phase 11 — Progress strip + exercise detail bottom sheet (PRD §6.8/§6.9, docs/plan.md)
+
+---
+
+## 2026-04-07T22:40:50Z
+**Completed this session:**
+- Phase 10 code review (via code-reviewer agent) — 1 Critical + 3 Minor findings, all fixed
+- Critical fix: guarded `router.replace('/session/feedback')` in both `renderComplete` and
+  `handleEndSession` ("Yes, add notes" branch) — if `currentSession === null`, routes to `/`
+  instead of feedback screen, preventing a silent no-op redirect loop
+- Minor fix: extracted inner `Alert.alert` from `handleEndSession` into a named
+  `showLogSessionAlert` useCallback, reducing nesting depth
+- Minor fix: corrected `Save &amp; Done` HTML entity to `Save & Done` in `feedback.tsx`
+  (JSX `<Text>` does not parse HTML entities)
+- Minor fix: added component-level tests for `feedback.tsx` in
+  `app/session/__tests__/feedback.test.tsx` (7 tests: null-guard redirect, Save happy path,
+  Save with blank input, Save error display, Skip, disabled-while-saving)
+- All tests pass: 31 total (24 store + 7 component); commit 6772276
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- Cast pattern for mocking zustand store in component tests: `(useAppStore as unknown as jest.Mock)`
+  — double cast required because TypeScript won't allow direct cast from the store type to Mock
+- jest.mock calls placed after imports in test file (babel hoists them at runtime regardless);
+  no eslint-disable needed when imports precede mock calls
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 11 — Progress strip + exercise detail bottom sheet
+  Relevant docs sections: PRD §6.8 (exercise detail), PRD §6.9 (progress strip), docs/plan.md
+  Watch out for:
+    - expo-dev agent for all screen/component work (this is React Native UI)
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null in
+      assemblePlanEntities) — not a gap to fix now
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+    - crypto.randomUUID() available in Hermes (Expo SDK 55) — no uuid package needed
+    - expo-dev-client required; cannot test on Expo Go
+
+---
+
+## 2026-04-10T00:00:00Z
+**Completed this session:**
+- Phase 11: Progress strip + exercise detail bottom sheet (implemented by expo-dev agent)
+  - ProgressStrip component: dots for all exercise steps, group dividers, active/completed/upcoming states, flex scaling to screen width
+  - ExerciseDetailSheet component: @gorhom/bottom-sheet, exercise name/equipment/target/form cues, YouTube deep link with browser fallback
+  - Timer pauses on sheet open during exercise steps; continues during gap steps (rest/between)
+- Build environment fixes (first-time Android build):
+  - Removed stale @op-engineering/op-sqlite plugin entry from app.json (v15 dropped config plugin)
+  - JAVA_HOME set to Android Studio bundled JDK 21 (permanently via user env var)
+  - adb platform-tools added to PATH permanently
+  - Removed corrupt NDK 27 stub; NDK auto-reinstalled during build
+  - Installed react-native-worklets (required peer dep for reanimated 4.x)
+  - Installed react-native-screens, react-native-safe-area-context, expo-linking (missing from node_modules)
+  - Installed expo-navigation-bar
+  - Fixed DOMException reference in generatePlan.ts (not available in Hermes) → instanceof Error check
+  - Bumped API timeout from 30s to 90s (reasoning model needs more time)
+  - Added EXPO_PUBLIC_ANTHROPIC_API_KEY to .env
+- Navigation fixes:
+  - Added SafeAreaProvider to _layout.tsx
+  - Added SafeAreaView edges={['bottom']} to onboarding footer (Next button was hidden behind nav bar)
+  - Added SafeAreaView edges={['bottom']} to session execution container
+  - Moved NavigationBar.setVisibilityAsync('hidden') to _layout.tsx (app-wide, not per-screen)
+  - Added router.dismissAll() before router.replace('/') on all session exit paths (back stack cleanup)
+  - Set headerBackVisible: false on session/[id] and session/feedback screens
+  - Removed edgeToEdgeEnabled from app.json (was causing layout issues on Android 15 devices)
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- NavigationBar hide is app-wide (in _layout.tsx), not per-screen — simpler and consistent
+- Bottom sheet during gap steps: timer continues, no pause/resume cycle
+- sheetOpenedDuringGap state tracks whether to resume on sheet close
+
+**Post-skeleton cleanup list (do not address until walking skeleton is complete):**
+1. Exercise `description` field missing — Exercise type needs a `description: string` field for detailed exercise intent/steps, separate from `formCues`. Requires schema change, storage migration, prompt update. Bottom sheet currently shows same form cues as main screen.
+2. Too many timed exercises — most resistance exercises should be rep-based. Address in prompt engineering pass.
+3. Bottom sheet UX tweaks — JD noted wanting to adjust behavior at some point (unspecified).
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 12 — Mid-session backgrounding + resume (PRD §6.7)
+  Relevant docs sections: PRD §6.7, docs/plan.md Phase 12
+  Affected screens: app/session/[id].tsx (primary), app/index.tsx (resume prompt)
+  Watch out for:
+    - expo-dev agent for all screen/component work
+    - Requires expo background task API + foreground service for Android 15 audio policy
+    - When invoking expo-dev agent: include explicit verification criteria (symbols to grep, not just tsc)
+    - Ask which screen is affected BEFORE making any UI fix
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional

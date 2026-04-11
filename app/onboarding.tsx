@@ -16,6 +16,7 @@
 //   On error: show error message + Retry button that re-runs steps 2–5.
 
 import * as Crypto from 'expo-crypto';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -700,7 +701,7 @@ export default function OnboardingScreen(): React.JSX.Element {
       </ScrollView>
 
       {/* Navigation footer */}
-      <View style={styles.footer}>
+      <SafeAreaView edges={['bottom']} style={styles.footer}>
         {/* Back button — hidden on step 1 */}
         {!isFirstStep ? (
           <TouchableOpacity
@@ -739,7 +740,7 @@ export default function OnboardingScreen(): React.JSX.Element {
             {isLastStep ? 'Generate my plan' : 'Next'}
           </Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </View>
   );
 }

@@ -72,6 +72,7 @@ export default function FeedbackScreen(): React.JSX.Element {
     setSaveError(null);
     try {
       await saveFeedback(commentText.trim().length > 0 ? commentText.trim() : null);
+      router.dismissAll();
       router.replace('/');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -84,6 +85,7 @@ export default function FeedbackScreen(): React.JSX.Element {
   // Clears pendingFeedback without persisting anything and navigates home.
   const handleSkip = useCallback((): void => {
     setPendingFeedback(null);
+    router.dismissAll();
     router.replace('/');
   }, [setPendingFeedback, router]);
 

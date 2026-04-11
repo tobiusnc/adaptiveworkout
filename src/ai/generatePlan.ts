@@ -238,7 +238,7 @@ const SUBMIT_PLAN_TOOL: Anthropic.Tool = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 90_000;
 const NETWORK_RETRY_BACKOFF_MS = 2_000;
 const MAX_VALIDATION_RETRIES = 2;
 
@@ -262,8 +262,8 @@ function createTimeoutSignal(ms: number): { signal: AbortSignal; cleanup: () => 
  * (timeout or HTTP 5xx).
  */
 function isNetworkRetryable(error: unknown): boolean {
-  // AbortController timeout
-  if (error instanceof DOMException && error.name === 'AbortError') {
+  // AbortController timeout — check by name because DOMException does not exist in Hermes.
+  if (error instanceof Error && error.name === 'AbortError') {
     return true;
   }
   // Anthropic SDK wraps HTTP errors in APIError

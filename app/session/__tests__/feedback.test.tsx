@@ -31,6 +31,7 @@ jest.mock('../../../src/store/useAppStore', () => ({
 // ── Mock helpers ───────────────────────────────────────────────────────────────
 
 const mockReplace = jest.fn();
+const mockDismissAll = jest.fn();
 
 type PendingFeedback = { sessionId: string; isComplete: boolean } | null;
 
@@ -50,7 +51,7 @@ function configureMocks(config: MockConfig = {}): {
     ? config.pendingFeedback
     : { sessionId: 'session-test-001', isComplete: true };
 
-  (useRouter as unknown as jest.Mock).mockReturnValue({ replace: mockReplace });
+  (useRouter as unknown as jest.Mock).mockReturnValue({ replace: mockReplace, dismissAll: mockDismissAll });
 
   const storeState = { pendingFeedback, saveFeedback, setPendingFeedback };
   (useAppStore as unknown as jest.Mock).mockImplementation(

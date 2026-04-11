@@ -30,6 +30,8 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import BottomSheet from '@gorhom/bottom-sheet';
 
 import { useAppStore } from '../../src/store/useAppStore';
 import { colors, spacing, typography } from '../../src/styles/tokens';
@@ -39,6 +41,22 @@ import {
 } from '../../src/session/buildStepSequence';
 import type { ExecutionStep, ExecutionStepKind } from '../../src/session/buildStepSequence';
 import { useTTS } from '../../src/session/useTTS';
+import { ProgressStrip } from '../../src/session/ProgressStrip';
+import { ExerciseDetailSheet } from '../../src/session/ExerciseDetailSheet';
+import type { Exercise } from '../../src/types/index';
+
+// ─── Step kinds that are gap steps (not exercise steps) ──────────────────────
+//
+// Used to determine whether to look forward for the next exercise step when the
+// user taps the exercise name during a rest/between/delay step.
+// Defined here so the set is available to the render function without importing
+// from ProgressStrip (which is an internal implementation detail of that file).
+const GAP_STEP_KINDS_SESSION: ReadonlySet<ExecutionStepKind> = new Set<ExecutionStepKind>([
+  'rest',
+  'between',
+  'warmup-delay',
+  'cooldown-delay',
+]);
 
 // ─── Execution state machine ──────────────────────────────────────────────────
 //
@@ -118,6 +136,19 @@ export default function SessionScreen(): React.JSX.Element {
   // useRef gives us a stable container that survives re-renders without
   // triggering them (heap-allocated, not stack-local).
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Bottom sheet ref ───────────────────────────────────────────────────────
+  // Imperative handle to the @gorhom/bottom-sheet instance. We call
+  // .snapToIndex(0) to open and .close() to dismiss programmatically.
+  const bottomSheetRef = useRef<BottomSheet | null>(null);
+
+  // The exercise and step displayed in the bottom sheet. Populated when the
+  // user taps the exercise name; cleared after the sheet closes.
+  // We keep these as state (not derived from stepIndex) so the sheet content
+  // does not disappear mid-close-animation when stepIndex advances.
+  const [sheetExercise, setSheetExercise] = useState<Exercise | null>(null);
+  const [sheetOpenedDuringGap, setSheetOpenedDuringGap] = useState<boolean>(false);
+  const [sheetTargetStep, setSheetTargetStep] = useState<ExecutionStep | null>(null);
 
   // Mirror of stepIndex in a ref so that the setTimeout callback inside the
   // timer interval always reads the current step index, not the stale closure
@@ -269,6 +300,7 @@ export default function SessionScreen(): React.JSX.Element {
     return stopTimer;
   }, [execState, stepIndex, steps, stopTimer, advanceToStep]);
 
+
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
   useEffect(() => {
     return (): void => {
@@ -373,12 +405,75 @@ export default function SessionScreen(): React.JSX.Element {
           text: 'No, go home',
           style: 'cancel',
           onPress: (): void => {
+            router.dismissAll();
             router.replace('/');
           },
         },
       ],
     );
   }, [currentSession, setPendingFeedback, router]);
+
+  // ── Exercise name tap → open bottom sheet ─────────────────────────────────
+  //
+  // Works for any step kind:
+  //   - Exercise steps: open sheet for the current step's exercise.
+  //   - Gap steps (rest/between/delay): scan forward for the next exercise step.
+  //   - If no exercise is found (e.g., at end of session): do nothing.
+  //
+  // Opening the sheet also pauses the timer by calling handlePause().
+  // handlePause() guards internally — it only acts if execState is RUNNING or AUTO.
+  // For HOLD/REP/PAUSED states the timer is already stopped; opening the sheet
+  // is still valid, we just don't call pause again.
+  const handleExerciseNameTap = useCallback((): void => {
+    const currentStep = steps[stepIndex];
+    if (currentStep === undefined) {
+      return;
+    }
+
+    let exerciseStep: ExecutionStep | null = null;
+
+    if (currentStep.exercise !== null) {
+      // Current step has an exercise directly.
+      exerciseStep = currentStep;
+    } else if (GAP_STEP_KINDS_SESSION.has(currentStep.stepKind)) {
+      // Gap step — scan forward for the next step that has an exercise.
+      for (let i = stepIndex + 1; i < steps.length; i++) {
+        const candidate = steps[i];
+        if (candidate !== undefined && candidate.exercise !== null) {
+          exerciseStep = candidate;
+          break;
+        }
+      }
+    }
+
+    if (exerciseStep === null || exerciseStep.exercise === null) {
+      // No exercise found — nothing to show.
+      return;
+    }
+
+    // Only pause during active exercise steps. During gap steps (rest, between,
+    // delay) the timer should keep running — the user is just previewing the next
+    // exercise while the rest countdown continues.
+    const isGapStep = GAP_STEP_KINDS_SESSION.has(currentStep.stepKind);
+    if (!isGapStep) {
+      handlePause();
+    }
+
+    setSheetExercise(exerciseStep.exercise);
+    setSheetTargetStep(exerciseStep);
+    // Track whether the sheet was opened during a gap so handleSheetClose
+    // knows not to call handleResume (timer was never paused).
+    setSheetOpenedDuringGap(isGapStep);
+    bottomSheetRef.current?.snapToIndex(0);
+  }, [steps, stepIndex, handlePause, bottomSheetRef]);
+
+  // Called by ExerciseDetailSheet when the sheet is dismissed (swipe or Close button).
+  // Only resumes if the sheet was opened during a non-gap step (i.e. timer was paused).
+  const handleSheetClose = useCallback((): void => {
+    if (!sheetOpenedDuringGap) {
+      handleResume();
+    }
+  }, [handleResume, sheetOpenedDuringGap]);
 
   // User taps "End Session" — two-step Alert pattern:
   //   Step 1: confirm intent to exit.
@@ -485,7 +580,10 @@ export default function SessionScreen(): React.JSX.Element {
     const progressText = `${stepIndex + 1} / ${steps.length}`;
 
     return (
-      <View style={styles.executionContainer}>
+      <SafeAreaView style={styles.executionContainer} edges={['bottom']}>
+        {/* ── Progress strip (dot strip for all exercise steps) ─── */}
+        <ProgressStrip steps={steps} stepIndex={stepIndex} />
+
         {/* ── Progress bar ─────────────────────────────────────── */}
         <View style={styles.progressBar}>
           <View
@@ -510,8 +608,18 @@ export default function SessionScreen(): React.JSX.Element {
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
-          {/* Exercise name + side badge */}
-          <Text style={styles.exerciseName}>{currentStep.label}</Text>
+          {/* Exercise name — tappable to open detail sheet.
+              During gap steps (rest/between/delay) the tap looks forward to the
+              next exercise step. If no next exercise exists the tap is a no-op
+              (handleExerciseNameTap guards internally). */}
+          <TouchableOpacity
+            onPress={handleExerciseNameTap}
+            activeOpacity={0.7}
+            accessibilityLabel={`Exercise: ${currentStep.label}. Tap for details.`}
+            accessibilityRole="button"
+          >
+            <Text style={styles.exerciseName}>{currentStep.label}</Text>
+          </TouchableOpacity>
           {currentStep.side !== null && (
             <View style={styles.sideBadge}>
               <Text style={styles.sideBadgeText}>{currentStep.side} Side</Text>
@@ -658,7 +766,7 @@ export default function SessionScreen(): React.JSX.Element {
             <Text style={styles.navButtonText}>Skip</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -674,6 +782,7 @@ export default function SessionScreen(): React.JSX.Element {
               setPendingFeedback({ sessionId: currentSession.id, isComplete: true });
               router.replace('/session/feedback');
             } else {
+              router.dismissAll();
               router.replace('/');
             }
           }}
@@ -696,7 +805,23 @@ export default function SessionScreen(): React.JSX.Element {
   if (execState === 'DONE') {
     return renderComplete();
   }
-  return renderExecution();
+
+  // The ExerciseDetailSheet must be rendered as a sibling of the execution
+  // content, not inside the ScrollView. @gorhom/bottom-sheet uses absolute
+  // positioning internally and must be at or near the root of the render tree.
+  // Using a React.Fragment here avoids introducing an extra layout View —
+  // the sheet renders on top of everything via its own Portal/absolute layer.
+  return (
+    <>
+      {renderExecution()}
+      <ExerciseDetailSheet
+        bottomSheetRef={bottomSheetRef}
+        exercise={sheetExercise}
+        targetStep={sheetTargetStep}
+        onClose={handleSheetClose}
+      />
+    </>
+  );
 }
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
