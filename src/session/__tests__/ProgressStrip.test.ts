@@ -10,8 +10,10 @@
 //   - No mocking required: the helpers depend only on TypeScript types and the
 //     module-level EXERCISE_STEP_KINDS set, with no RN runtime calls.
 
-import { deriveGroupTag, findNextExerciseDotIndex } from '../ProgressStrip';
+import { __testExports } from '../ProgressStrip';
 import type { ExecutionStep } from '../buildStepSequence';
+
+const { deriveGroupTag, findNextExerciseDotIndex } = __testExports;
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

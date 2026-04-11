@@ -29,7 +29,9 @@ const EXERCISE_STEP_KINDS: ReadonlySet<ExecutionStepKind> = new Set([
 
 // The step kinds that are "gap" steps — during these, the active dot advances
 // to the NEXT exercise step (look-forward behavior).
-const GAP_STEP_KINDS: ReadonlySet<ExecutionStepKind> = new Set([
+// Exported so that session/[id].tsx can import the canonical set rather than
+// defining its own duplicate.
+export const GAP_STEP_KINDS: ReadonlySet<ExecutionStepKind> = new Set([
   'rest',
   'between',
   'warmup-delay',
@@ -84,7 +86,7 @@ interface ProgressStripProps {
 // preceding work group — this means they logically belong to the between-round
 // boundary and always get a divider before the NEXT round group.
 
-export function deriveGroupTag(step: ExecutionStep): string {
+function deriveGroupTag(step: ExecutionStep): string {
   switch (step.stepKind) {
     case 'warmup-work':
       return 'warmup';
@@ -112,7 +114,7 @@ export function deriveGroupTag(step: ExecutionStep): string {
 //
 // Returns -1 if no subsequent exercise step exists.
 
-export function findNextExerciseDotIndex(
+function findNextExerciseDotIndex(
   steps: ReadonlyArray<ExecutionStep>,
   stepIndex: number,
   dots: ReadonlyArray<DotEntry>,
@@ -223,6 +225,13 @@ export function ProgressStrip(props: ProgressStripProps): React.JSX.Element {
     </View>
   );
 }
+
+// ─── Test exports ─────────────────────────────────────────────────────────────
+//
+// Internal helpers exported for unit testing only. Not part of the public API.
+// Import via: import { __testExports } from './ProgressStrip'
+
+export const __testExports = { deriveGroupTag, findNextExerciseDotIndex };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

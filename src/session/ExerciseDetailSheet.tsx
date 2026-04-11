@@ -31,7 +31,7 @@ import type { ExecutionStep } from './buildStepSequence';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function formatSeconds(totalSeconds: number): string {
+function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   if (minutes > 0) {
@@ -48,7 +48,7 @@ export function formatSeconds(totalSeconds: number): string {
 // Both Linking.canOpenURL and Linking.openURL are async — fire-and-forget is
 // acceptable here because a failure to open a URL is non-fatal.
 
-export async function openYouTubeSearch(searchQuery: string): Promise<void> {
+async function openYouTubeSearch(searchQuery: string): Promise<void> {
   const encodedQuery = encodeURIComponent(searchQuery);
   const appUrl = `youtube://results?search_query=${encodedQuery}`;
   const webUrl = `https://www.youtube.com/results?search_query=${encodedQuery}`;
@@ -213,6 +213,13 @@ export function ExerciseDetailSheet(props: ExerciseDetailSheetProps): React.JSX.
     </BottomSheet>
   );
 }
+
+// ─── Test exports ─────────────────────────────────────────────────────────────
+//
+// Internal helpers exported for unit testing only. Not part of the public API.
+// Import via: import { __testExports } from './ExerciseDetailSheet'
+
+export const __testExports = { formatSeconds, openYouTubeSearch };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

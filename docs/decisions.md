@@ -230,6 +230,15 @@ Consequences: Exception documented here. Any future pure-JS SDKs without native 
 
 ---
 
+### 2026-04-07 — generatePlan API timeout increased to 90s
+**Decision:** Raised the `AbortController` timeout in `generatePlan.ts` from 30 000 ms to 90 000 ms.
+**Alternatives considered:** Keep at 30s and retry on timeout.
+**Reasoning:** The reasoning model (`claude-3-7-sonnet-20250219`) with extended thinking takes significantly longer than 30s on first invocation. Observed timeouts in local testing before the bump. 90s aligns with the 2-minute maximum allowed by the PRD for the generation step.
+**Implications:** PRD §5.3 states "30 000 ms explicit default" — this entry supersedes that value. Update PRD §5.3 to 90 000 ms in a future docs pass.
+**Revisit if:** Generation consistently completes in under 30s after prompt tuning; lower back to 30s.
+
+---
+
 ### 2026-04-05 — Bilateral exercise execution model
 **Decision:** Bilateral timed exercises produce two consecutive hold-before-step
 steps (Left then Right) with no rest or delay between sides. Bilateral rep exercises

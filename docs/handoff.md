@@ -916,3 +916,35 @@
     - Ask which screen is affected BEFORE making any UI fix
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-11T03:35:25Z
+**Completed this session:**
+- Phase 11 unit tests (new):
+  - `src/session/__tests__/ProgressStrip.test.ts` — 9 behaviors: `deriveGroupTag` (5 paths: warmup-work, cooldown-work, work, stretch, unknown/gap fallback) and `findNextExerciseDotIndex` (4 paths: next step is exercise, exercise after gap, no exercise follows, stepIndex at last step)
+  - `src/session/__tests__/ExerciseDetailSheet.test.ts` — 9 behaviors: `formatSeconds` (5 paths: 0s, <60s, exactly 60, >60, zero-remainder minutes) and `openYouTubeSearch` (4 paths: YouTube app available, app not installed, canOpenURL throws, special character encoding)
+- Minimal exports added to source files (required for test access):
+  - `src/session/ProgressStrip.tsx`: exported `deriveGroupTag`, `findNextExerciseDotIndex`
+  - `src/session/ExerciseDetailSheet.tsx`: exported `formatSeconds`, `openYouTubeSearch`
+- Fixed two broken pre-existing tests (broken by Phase 11 source changes):
+  - `src/ai/__tests__/generatePlan.test.ts`: replaced `new DOMException(...)` with `Object.assign(new Error(...), { name: 'AbortError' })` — DOMException does not extend Error in the jest-expo runtime, so the Phase 11 `instanceof Error && name === 'AbortError'` check in isNetworkRetryable was not matching
+  - `app/session/__tests__/feedback.test.tsx`: added `dismissAll: mockDismissAll` to router mock — Phase 11 added `router.dismissAll()` to feedback.tsx but the mock only had `replace`
+
+**In progress:** Nothing.
+
+**Decisions made:** None new.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: /review in a fresh session (code review of all Phase 11 changes)
+  Relevant docs sections: PRD §6.5 (session execution), docs/decisions.md
+  Affected screens: app/session/[id].tsx, app/session/feedback.tsx, app/_layout.tsx, app/onboarding.tsx
+  Watch out for:
+    - code-reviewer agent must run in a FRESH session (not this one)
+    - Review scope: src/session/ProgressStrip.tsx, src/session/ExerciseDetailSheet.tsx, all modified app/** screens, src/ai/generatePlan.ts (DOMException fix + timeout), app.json changes
+    - After review is done: Phase 12 — Mid-session backgrounding + resume (PRD §6.7)
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional

@@ -10,7 +10,9 @@
 //   - The React component itself is not rendered.
 
 import { Linking } from 'react-native';
-import { formatSeconds, openYouTubeSearch } from '../ExerciseDetailSheet';
+import { __testExports } from '../ExerciseDetailSheet';
+
+const { formatSeconds, openYouTubeSearch } = __testExports;
 
 // ── Mock @gorhom/bottom-sheet ─────────────────────────────────────────────────
 // The module is imported by ExerciseDetailSheet.tsx at the top level.

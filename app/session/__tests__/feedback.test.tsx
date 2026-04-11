@@ -103,6 +103,7 @@ describe('FeedbackScreen — Save & Done', () => {
     await waitFor(() => {
       expect(saveFeedback).toHaveBeenCalledTimes(1);
       expect(saveFeedback).toHaveBeenCalledWith('Great session!');
+      expect(mockDismissAll).toHaveBeenCalledTimes(1);
       expect(mockReplace).toHaveBeenCalledWith('/');
     });
   });
@@ -145,6 +146,7 @@ describe('FeedbackScreen — Skip', () => {
     fireEvent.press(getByText('Skip'));
 
     expect(setPendingFeedback).toHaveBeenCalledWith(null);
+    expect(mockDismissAll).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/');
   });
 });

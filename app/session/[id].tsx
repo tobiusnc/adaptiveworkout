@@ -41,22 +41,10 @@ import {
 } from '../../src/session/buildStepSequence';
 import type { ExecutionStep, ExecutionStepKind } from '../../src/session/buildStepSequence';
 import { useTTS } from '../../src/session/useTTS';
-import { ProgressStrip } from '../../src/session/ProgressStrip';
+import { GAP_STEP_KINDS, ProgressStrip } from '../../src/session/ProgressStrip';
 import { ExerciseDetailSheet } from '../../src/session/ExerciseDetailSheet';
 import type { Exercise } from '../../src/types/index';
 
-// ─── Step kinds that are gap steps (not exercise steps) ──────────────────────
-//
-// Used to determine whether to look forward for the next exercise step when the
-// user taps the exercise name during a rest/between/delay step.
-// Defined here so the set is available to the render function without importing
-// from ProgressStrip (which is an internal implementation detail of that file).
-const GAP_STEP_KINDS_SESSION: ReadonlySet<ExecutionStepKind> = new Set<ExecutionStepKind>([
-  'rest',
-  'between',
-  'warmup-delay',
-  'cooldown-delay',
-]);
 
 // ─── Execution state machine ──────────────────────────────────────────────────
 //
@@ -435,7 +423,7 @@ export default function SessionScreen(): React.JSX.Element {
     if (currentStep.exercise !== null) {
       // Current step has an exercise directly.
       exerciseStep = currentStep;
-    } else if (GAP_STEP_KINDS_SESSION.has(currentStep.stepKind)) {
+    } else if (GAP_STEP_KINDS.has(currentStep.stepKind)) {
       // Gap step — scan forward for the next step that has an exercise.
       for (let i = stepIndex + 1; i < steps.length; i++) {
         const candidate = steps[i];
@@ -454,7 +442,7 @@ export default function SessionScreen(): React.JSX.Element {
     // Only pause during active exercise steps. During gap steps (rest, between,
     // delay) the timer should keep running — the user is just previewing the next
     // exercise while the rest countdown continues.
-    const isGapStep = GAP_STEP_KINDS_SESSION.has(currentStep.stepKind);
+    const isGapStep = GAP_STEP_KINDS.has(currentStep.stepKind);
     if (!isGapStep) {
       handlePause();
     }
