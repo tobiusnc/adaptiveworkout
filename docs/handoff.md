@@ -1078,3 +1078,51 @@
     - Phase 13 is also Expo/RN UI work — route through expo-dev agent for screen/component work
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-11T18:55:10Z
+**Completed this session:**
+- Phase 13.1 — `docs/schema.md` bumped to v1.5: `recentFeedback: SessionFeedback[]` added to `ModifyPlanInput`; `contextRecordUpdate` comment clarified as full replacement content
+- Phase 13.1 — `src/types/index.ts` updated to match: `recentFeedback` field added to `ModifyPlanInput`
+- Phase 13.2 — `src/ai/prompts/modifyPlan.ts` + `src/ai/modifyPlan.ts`:
+  - Discriminated union return: `{ type: 'clarification'; message }` | `{ type: 'proposal'; output: ModifyPlanOutput }`
+  - `tool_choice: auto` — AI chooses text (clarification) or `submit_modification` tool (proposal)
+  - Full PRD §5.3 contract: 30s timeout, 1 network retry + 2s backoff, validation retry loop (max 2), token logging, error logging
+  - Uses `REASONING_MODEL`; reads API key from env
+- Phase 13.3 — `src/ai/prompts/summarizeContextRecord.ts` + `src/ai/summarizeContextRecord.ts`:
+  - Forced tool use (`submit_summary`); full PRD §5.3 contract
+  - Uses `SUMMARIZATION_MODEL` (Haiku); failure throws `SummarizeContextRecordError` — callers skip condensation (non-blocking)
+- Phase 13.4 — `StorageService` interface + `OpSqliteStorageService.applyPlanModification`:
+  - Atomic SQLite transaction: plan changes, session add/update/remove, exercise add/update/remove, context record upsert
+  - Full rollback on any failure; `StorageError('QUERY_FAILED')` on DB error
+- All 162 tests pass; TypeScript clean; ESLint clean
+- Commit: f5d5f7b
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- `modifyPlan` uses `tool_choice: auto` (not forced) so the AI can respond with plain text for clarifications — recorded in decisions.md? No — noting here for the reviewer: this is the key architectural difference from `generatePlan`.
+- `contextRecordUpdate` is full replacement content, not a delta — AI reads current record and returns updated version in one call.
+- 3000-character threshold for `summarizeContextRecord` trigger — checked by UI layer after apply, not in storage.
+- Recent feedback count: last 5 records (`getRecentFeedback(5)`) — UI layer responsibility to call this.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 13.7 — unit tests (FRESH session, /unit-tests skill)
+  Relevant docs sections: schema.md AI Output §modifyPlan, §summarizeContextRecord; PRD §5.3
+  Affected screens: None (tests only)
+  Watch out for:
+    - test-writer agent must run in a FRESH session — never in the session that wrote the code
+    - modifyPlan: two paths to test — clarification (text-only response) and proposal (tool_use response)
+    - modifyPlan validation retry: uses tool_result / is_error:true feedback pattern (same as generatePlan)
+    - summarizeContextRecord: forced tool use — no clarification path
+    - applyPlanModification: test transaction rollback on mid-apply failure; test context record upsert (create when absent, update when present)
+    - Mock pattern for storage in tests: see src/store/__tests__/useAppStore.test.ts — add `applyPlanModification: jest.fn()` to any new mocks
+    - Key file reads for test-writer (targeted, not full): grep `ModifyPlanResult` in modifyPlan.ts for return type; grep `runPlanLoop\|buildValidationRetry` in modifyPlan.ts for retry structure; grep `applyPlanModification\|applySessionChanges\|applyContextRecord` in OpSqliteStorageService.ts for transaction structure
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+    - After tests pass: Phase 13 code review (FRESH session, /review skill) covering modifyPlan, summarizeContextRecord, applyPlanModification
+    - After review passes: Phase 13.5 + 13.6 UI work (expo-dev agent)
