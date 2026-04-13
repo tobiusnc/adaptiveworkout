@@ -1126,3 +1126,53 @@
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
     - After tests pass: Phase 13 code review (FRESH session, /review skill) covering modifyPlan, summarizeContextRecord, applyPlanModification
     - After review passes: Phase 13.5 + 13.6 UI work (expo-dev agent)
+
+---
+
+## 2026-04-12T13:45:10Z
+**Completed this session:**
+- Phase 13.7 — Unit tests for Phase 13 AI and storage layer
+  - `src/ai/__tests__/modifyPlan.test.ts` — 27 tests covering:
+    - Missing API key guard
+    - Clarification path (text-only, multi-block text concat, empty response throws)
+    - Proposal path (valid tool_use → ModifyPlanOutput)
+    - Token logging (both paths)
+    - Network retry: AbortError, 5xx, exhaustion, non-retryable 4xx, error logging
+    - Validation retry: Zod failure → retry, tool_result error message structure, exhaustion (3 calls total), model switches to text on retry
+  - `src/ai/__tests__/summarizeContextRecord.test.ts` — 18 tests covering:
+    - Missing API key guard
+    - Happy path (valid response, single call, empty conversation branch)
+    - Token logging
+    - Network retry: AbortError, 5xx, exhaustion, non-retryable 4xx, error logging
+    - Tool extraction retry (no submit_summary block → retry, conversation append, exhaustion)
+    - Validation retry: Zod failure → retry, tool_result error message, exhaustion
+  - `src/storage/__tests__/OpSqliteStorageService.applyPlanModification.test.ts` — 15 tests covering:
+    - Transaction framing: BEGIN/COMMIT on success, ROLLBACK on failure, StorageError tag
+    - planChanges: null skips all UPDATEs; name/description/config fields each trigger correct SQL
+    - Session remove: DELETE exercise+session; null sessionId → StorageError + ROLLBACK
+    - Session add: INSERT session; exercise add within new session; null sessionDraft → StorageError
+    - Session update: UPDATE session fields; null sessionId → StorageError
+    - Exercise changes: remove (null id → error), add (null draft → error), update (null id → error), happy paths
+    - Context record upsert: null skips, UPDATE when row exists, INSERT when row absent
+- All 222 tests pass; TypeScript clean; ESLint clean
+- Commit: a5bc73c
+
+**In progress:** Nothing.
+
+**Decisions made:** None new.
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 13 code review — /review in a FRESH session covering modifyPlan.ts, summarizeContextRecord.ts, and OpSqliteStorageService.ts (applyPlanModification section only)
+  Relevant docs sections: PRD §5.3, schema.md AI Output §modifyPlan §summarizeContextRecord
+  Affected screens: None (review only)
+  Watch out for:
+    - code-reviewer agent must run in a FRESH session — never the session that wrote or tested the code
+    - Review scope: src/ai/modifyPlan.ts, src/ai/summarizeContextRecord.ts, OpSqliteStorageService.ts lines 1184–1482
+    - After review passes: Phase 13.5 + 13.6 UI work (expo-dev agent) — chat screen + context record display
+    - modifyPlan coverage gap: formatExercise/formatSession/formatFeedback helpers (lines 340–407) are uncovered — these are pure formatters with no error paths; low priority but worth noting
+    - OpSqliteStorageService line 1194 (ROLLBACK-itself-fails path) uncovered — would require mocking ROLLBACK to reject; not a gap worth adding
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional

@@ -470,13 +470,13 @@ function buildUserMessage(
  */
 function extractToolCallArgs(
   response: Anthropic.Message,
-): unknown | null {
+): Record<string, unknown> | null {
   for (const block of response.content) {
     if (
       block.type === 'tool_use' &&
       block.name === 'submit_modification'
     ) {
-      return block.input;
+      return block.input as Record<string, unknown>;
     }
   }
   return null;

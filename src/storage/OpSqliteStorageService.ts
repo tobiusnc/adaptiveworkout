@@ -1286,6 +1286,15 @@ export class OpSqliteStorageService implements StorageService {
             null,
           ],
         );
+        if (draft.betweenRoundExercise != null) {
+          const betweenRoundId = await OpSqliteStorageService.insertExerciseDraft(
+            db, newSessionId, draft.betweenRoundExercise,
+          );
+          await db.execute(
+            'UPDATE session SET between_round_exercise_id=? WHERE id=?',
+            [betweenRoundId, newSessionId],
+          );
+        }
         for (const exChange of change.exerciseChanges) {
           if (exChange.action === 'add' && exChange.exerciseDraft !== null) {
             await OpSqliteStorageService.insertExerciseDraft(db, newSessionId, exChange.exerciseDraft);
@@ -1314,38 +1323,52 @@ export class OpSqliteStorageService implements StorageService {
     sessionId: string,
     draft: Partial<import('../types/index').SessionDraft>,
   ): Promise<void> {
+    const now = new Date().toISOString();
     if (draft.name !== undefined) {
-      await db.execute('UPDATE session SET name=? WHERE id=?', [draft.name, sessionId]);
+      await db.execute('UPDATE session SET name=?, updated_at=? WHERE id=?', [draft.name, now, sessionId]);
     }
     if (draft.type !== undefined) {
-      await db.execute('UPDATE session SET type=? WHERE id=?', [draft.type, sessionId]);
+      await db.execute('UPDATE session SET type=?, updated_at=? WHERE id=?', [draft.type, now, sessionId]);
     }
     if (draft.orderInPlan !== undefined) {
-      await db.execute('UPDATE session SET order_in_plan=? WHERE id=?', [draft.orderInPlan, sessionId]);
+      await db.execute('UPDATE session SET order_in_plan=?, updated_at=? WHERE id=?', [draft.orderInPlan, now, sessionId]);
     }
     if (draft.rounds !== undefined) {
-      await db.execute('UPDATE session SET rounds=? WHERE id=?', [draft.rounds, sessionId]);
+      await db.execute('UPDATE session SET rounds=?, updated_at=? WHERE id=?', [draft.rounds, now, sessionId]);
     }
     if (draft.estimatedDurationMinutes !== undefined) {
-      await db.execute('UPDATE session SET estimated_duration_minutes=? WHERE id=?', [draft.estimatedDurationMinutes, sessionId]);
+      await db.execute('UPDATE session SET estimated_duration_minutes=?, updated_at=? WHERE id=?', [draft.estimatedDurationMinutes, now, sessionId]);
     }
     if (draft.workSec !== undefined) {
-      await db.execute('UPDATE session SET work_sec=? WHERE id=?', [draft.workSec, sessionId]);
+      await db.execute('UPDATE session SET work_sec=?, updated_at=? WHERE id=?', [draft.workSec, now, sessionId]);
     }
     if (draft.restBetweenExSec !== undefined) {
-      await db.execute('UPDATE session SET rest_between_ex_sec=? WHERE id=?', [draft.restBetweenExSec, sessionId]);
+      await db.execute('UPDATE session SET rest_between_ex_sec=?, updated_at=? WHERE id=?', [draft.restBetweenExSec, now, sessionId]);
     }
     if (draft.stretchBetweenRoundsSec !== undefined) {
-      await db.execute('UPDATE session SET stretch_between_rounds_sec=? WHERE id=?', [draft.stretchBetweenRoundsSec, sessionId]);
+      await db.execute('UPDATE session SET stretch_between_rounds_sec=?, updated_at=? WHERE id=?', [draft.stretchBetweenRoundsSec, now, sessionId]);
     }
     if (draft.restBetweenRoundsSec !== undefined) {
-      await db.execute('UPDATE session SET rest_between_rounds_sec=? WHERE id=?', [draft.restBetweenRoundsSec, sessionId]);
+      await db.execute('UPDATE session SET rest_between_rounds_sec=?, updated_at=? WHERE id=?', [draft.restBetweenRoundsSec, now, sessionId]);
     }
     if (draft.warmupDelayBetweenItemsSec !== undefined) {
-      await db.execute('UPDATE session SET warmup_delay_between_items_sec=? WHERE id=?', [draft.warmupDelayBetweenItemsSec, sessionId]);
+      await db.execute('UPDATE session SET warmup_delay_between_items_sec=?, updated_at=? WHERE id=?', [draft.warmupDelayBetweenItemsSec, now, sessionId]);
     }
     if (draft.cooldownDelayBetweenItemsSec !== undefined) {
-      await db.execute('UPDATE session SET cooldown_delay_between_items_sec=? WHERE id=?', [draft.cooldownDelayBetweenItemsSec, sessionId]);
+      await db.execute('UPDATE session SET cooldown_delay_between_items_sec=?, updated_at=? WHERE id=?', [draft.cooldownDelayBetweenItemsSec, now, sessionId]);
+    }
+    if (draft.betweenRoundExercise !== undefined) {
+      if (draft.betweenRoundExercise === null) {
+        await db.execute('UPDATE session SET between_round_exercise_id=NULL, updated_at=? WHERE id=?', [now, sessionId]);
+      } else {
+        const betweenRoundId = await OpSqliteStorageService.insertExerciseDraft(
+          db, sessionId, draft.betweenRoundExercise,
+        );
+        await db.execute(
+          'UPDATE session SET between_round_exercise_id=?, updated_at=? WHERE id=?',
+          [betweenRoundId, now, sessionId],
+        );
+      }
     }
   }
 
@@ -1388,7 +1411,8 @@ export class OpSqliteStorageService implements StorageService {
     db: OPSQLiteDB,
     sessionId: string,
     draft: Partial<import('../types/index').ExerciseDraft>,
-  ): Promise<void> {
+  ): Promise<string> {
+    const exerciseId = Crypto.randomUUID();
     await db.execute(
       `INSERT INTO exercise (
         id, schema_version, session_id, phase, order_num, name, type,
@@ -1396,7 +1420,7 @@ export class OpSqliteStorageService implements StorageService {
         youtube_search_query, is_bilateral
       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
-        Crypto.randomUUID(), 1, sessionId,
+        exerciseId, 1, sessionId,
         draft.phase ?? null,
         draft.order ?? 0,
         draft.name ?? '',
@@ -1410,6 +1434,7 @@ export class OpSqliteStorageService implements StorageService {
         draft.isBilateral ? 1 : 0,
       ],
     );
+    return exerciseId;
   }
 
   private static async applyExerciseDraftUpdate(

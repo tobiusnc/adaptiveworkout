@@ -263,8 +263,11 @@ async function runSummaryLoop(
   client: Anthropic,
   messages: Anthropic.MessageParam[],
 ): Promise<SummarizeContextRecordOutput> {
+  // Work on a local copy so the caller's array is never mutated.
+  const localMessages = [...messages];
+
   for (let attempt = 0; attempt <= MAX_VALIDATION_RETRIES; attempt++) {
-    const response = await executeApiAttempt(client, messages, attempt);
+    const response = await executeApiAttempt(client, localMessages, attempt);
 
     let rawArgs: unknown;
     try {
@@ -277,7 +280,7 @@ async function runSummaryLoop(
         attempt,
       });
       if (attempt < MAX_VALIDATION_RETRIES) {
-        messages.push({ role: 'assistant', content: response.content });
+        localMessages.push(...buildValidationRetryMessages(response, msg));
         continue;
       }
       throw new SummarizeContextRecordError(`Tool extraction failed: ${msg}`, error);
@@ -300,7 +303,7 @@ async function runSummaryLoop(
     });
 
     if (attempt < MAX_VALIDATION_RETRIES) {
-      messages.push(...buildValidationRetryMessages(response, validationErrorStr));
+      localMessages.push(...buildValidationRetryMessages(response, validationErrorStr));
       continue;
     }
     throw new SummarizeContextRecordError(

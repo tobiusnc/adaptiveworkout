@@ -296,20 +296,24 @@ describe('summarizeContextRecord — tool extraction retry', () => {
     expect(result.schemaVersion).toBe(1);
   });
 
-  it('appends the failed assistant response to the conversation on tool-extraction retry', async () => {
+  it('appends assistant response + tool_result error to conversation on tool-extraction retry', async () => {
     mockMessagesCreate
       .mockResolvedValueOnce(makeNoToolResponse())
       .mockResolvedValueOnce(makeSuccessResponse());
 
     await summarizeContextRecord(FIXTURE_INPUT);
 
-    // Second call messages = [original_user, assistant_no_tool]
+    // Second call messages = [original_user, assistant_no_tool, user_tool_result_error]
     const secondCallArgs = mockMessagesCreate.mock.calls[1][0] as {
       messages: { role: string; content: unknown }[];
     };
     const messages = secondCallArgs.messages;
-    expect(messages).toHaveLength(2);
+    expect(messages).toHaveLength(3);
     expect(messages[1].role).toBe('assistant');
+    expect(messages[2].role).toBe('user');
+    const userContent = messages[2].content as { type: string; is_error: boolean }[];
+    expect(userContent[0].type).toBe('tool_result');
+    expect(userContent[0].is_error).toBe(true);
   });
 
   it('throws SummarizeContextRecordError after all 3 responses lack submit_summary', async () => {
