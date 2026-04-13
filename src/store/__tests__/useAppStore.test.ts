@@ -81,6 +81,7 @@ function buildMockService(): jest.Mocked<StorageService> {
     saveExercise:         jest.fn().mockResolvedValue(undefined),
     getExercise:          jest.fn().mockResolvedValue(null),
     getExercisesBySession: jest.fn().mockResolvedValue([]),
+    getExercisesByPlan:   jest.fn().mockResolvedValue([]),
     updateExercise:       jest.fn().mockResolvedValue(undefined),
     deleteExercise:       jest.fn().mockResolvedValue(undefined),
     saveFeedback:         jest.fn().mockResolvedValue(undefined),

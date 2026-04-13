@@ -61,6 +61,11 @@ export interface StorageService {
   saveExercise(exercise: Exercise): Promise<void>;
   getExercise(id: string): Promise<Exercise | null>;
   getExercisesBySession(sessionId: string): Promise<Exercise[]>;
+
+  // Returns all exercises for every session that belongs to the given plan,
+  // ordered by session orderInPlan ASC, then exercise order ASC.
+  getExercisesByPlan(planId: string): Promise<Exercise[]>;
+
   updateExercise(exercise: Exercise): Promise<void>;
   deleteExercise(id: string): Promise<void>;
 

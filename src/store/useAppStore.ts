@@ -24,7 +24,14 @@ import type {
   GeneratePlanOutput,
   ExerciseDraft,
   SessionFeedback,
+  PlanContextRecord,
+  ModifyPlanOutput,
+  ConversationMessage,
 } from '../types/index';
+import {
+  summarizeContextRecord,
+  SummarizeContextRecordError,
+} from '../ai/summarizeContextRecord';
 
 // ── Entity assembly helpers ───────────────────────────────────────────────────
 // Pure functions that build fully-typed entities from AI output drafts.
@@ -187,6 +194,24 @@ interface AppActions {
   // Sets or clears pendingFeedback. Call before navigating to /session/feedback
   // (set) or when the user taps Skip (null).
   setPendingFeedback: (value: { sessionId: string; isComplete: boolean } | null) => void;
+
+  // Called from plan-chat screen on mount to load all data needed for the
+  // modifyPlan API call in a single round-trip.
+  loadPlanChatData: (planId: string) => Promise<{
+    contextRecord: PlanContextRecord | null;
+    recentFeedback: SessionFeedback[];
+    allExercises: Exercise[];
+  }>;
+
+  // Called from plan-chat screen when the user confirms "Apply Change".
+  // Writes the modification to storage, conditionally summarises the context
+  // record if it exceeds 3 000 chars, then refreshes planSessions in the store.
+  // Summarisation failure is non-blocking: logged and skipped.
+  applyModification: (
+    planId: string,
+    output: ModifyPlanOutput,
+    conversation: ConversationMessage[],
+  ) => Promise<void>;
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -317,5 +342,83 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     // Clear pendingFeedback after successful persistence so the feedback screen
     // cannot double-submit if the user navigates back unexpectedly.
     set({ pendingFeedback: null });
+  },
+
+  // ── loadPlanChatData ──────────────────────────────────────────────────────────
+  // Fetches the three inputs needed by modifyPlan in parallel.
+  loadPlanChatData: async (planId: string): Promise<{
+    contextRecord: PlanContextRecord | null;
+    recentFeedback: SessionFeedback[];
+    allExercises: Exercise[];
+  }> => {
+    const { storageService } = get();
+    if (storageService === null) {
+      throw new Error('StorageService not initialized — call initialize() first.');
+    }
+    const [contextRecord, recentFeedback, allExercises] = await Promise.all([
+      storageService.getContextRecord(planId),
+      storageService.getRecentFeedback(5),
+      storageService.getExercisesByPlan(planId),
+    ]);
+    return { contextRecord, recentFeedback, allExercises };
+  },
+
+  // ── applyModification ─────────────────────────────────────────────────────────
+  // 1. Writes the diff to the DB atomically.
+  // 2. If contextRecordUpdate is provided and exceeds 3 000 chars, condenses it
+  //    via summarizeContextRecord and saves the condensed version.
+  // 3. Refreshes planSessions so the home screen shows updated data immediately.
+  applyModification: async (
+    planId: string,
+    output: ModifyPlanOutput,
+    conversation: ConversationMessage[],
+  ): Promise<void> => {
+    const { storageService, loadSessions } = get();
+    if (storageService === null) {
+      throw new Error('StorageService not initialized — call initialize() first.');
+    }
+
+    await storageService.applyPlanModification(planId, output);
+
+    if (output.contextRecordUpdate !== null && output.contextRecordUpdate.length > 3000) {
+      try {
+        const summaryResult = await summarizeContextRecord({
+          schemaVersion: 1,
+          currentRecord: {
+            id: '',
+            schemaVersion: 1,
+            planId,
+            content: output.contextRecordUpdate,
+            updatedAt: new Date().toISOString(),
+          },
+          conversation,
+        });
+        const existing = await storageService.getContextRecord(planId);
+        const now = new Date().toISOString();
+        if (existing !== null) {
+          await storageService.updateContextRecord({
+            ...existing,
+            content: summaryResult.content,
+            updatedAt: now,
+          });
+        } else {
+          await storageService.saveContextRecord({
+            id: Crypto.randomUUID(),
+            schemaVersion: 1,
+            planId,
+            content: summaryResult.content,
+            updatedAt: now,
+          });
+        }
+      } catch (err) {
+        if (!(err instanceof SummarizeContextRecordError)) {
+          throw err;
+        }
+        // SummarizeContextRecordError is non-blocking — log and continue.
+        console.warn('summarizeContextRecord failed; retaining full context record.', err);
+      }
+    }
+
+    await loadSessions(planId);
   },
 }));

@@ -19,6 +19,7 @@ import { useAppStore } from '../src/store/useAppStore';
 import type { Session } from '../src/types/index';
 import { colors, spacing, typography } from '../src/styles/tokens';
 import { getInterruptedSession, clearInterruptedSession } from '../src/session/interruptedSessionStore';
+import PlanChatButton from '../src/components/PlanChatButton';
 
 export default function HomeScreen(): React.JSX.Element {
   const router = useRouter();
@@ -124,6 +125,8 @@ export default function HomeScreen(): React.JSX.Element {
           )}
         />
       )}
+
+      <PlanChatButton />
     </View>
   );
 }

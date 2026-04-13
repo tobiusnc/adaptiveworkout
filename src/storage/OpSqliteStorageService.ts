@@ -951,6 +951,30 @@ export class OpSqliteStorageService implements StorageService {
     }
   }
 
+  async getExercisesByPlan(planId: string): Promise<Exercise[]> {
+    const db = this.assertDb();
+    try {
+      const result = await db.execute(
+        `SELECT e.* FROM exercise e
+         INNER JOIN session s ON e.session_id = s.id
+         WHERE s.plan_id = ?
+         ORDER BY s.order_in_plan ASC, e.order_num ASC`,
+        [planId],
+      );
+      const rows = (result.rows ?? []) as unknown as ExerciseRow[];
+      return rows.map(rowToExercise);
+    } catch (cause) {
+      if (cause instanceof StorageError) {
+        throw cause;
+      }
+      throw new StorageError(
+        `Failed to get Exercises for planId=${planId}`,
+        'QUERY_FAILED',
+        cause,
+      );
+    }
+  }
+
   async updateExercise(exercise: Exercise): Promise<void> {
     const db = this.assertDb();
     try {

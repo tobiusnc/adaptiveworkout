@@ -1176,3 +1176,81 @@
     - OpSqliteStorageService line 1194 (ROLLBACK-itself-fails path) uncovered — would require mocking ROLLBACK to reject; not a gap worth adding
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-13T00:42:10Z
+**Completed this session:**
+- Phase 13 code review (code-reviewer agent) — all findings fixed
+  - **M1 (MAJOR):** `applySessionDraftUpdate` and session 'add' path silently dropped `betweenRoundExercise` from `SessionDraft` — data loss on session add/update with a between-round exercise
+    - `insertExerciseDraft` changed from `Promise<void>` to `Promise<string>` (returns new UUID)
+    - 'add' path: inserts `betweenRoundExercise` if present and links `between_round_exercise_id`
+    - 'update' path (`applySessionDraftUpdate`): handles `betweenRoundExercise` — null clears the link, ExerciseDraft inserts and links
+  - **m1 (MINOR):** `runSummaryLoop` in `summarizeContextRecord.ts` mutated caller's `messages` array in-place — fixed by working on a `localMessages` copy
+  - **m2 (MINOR):** `extractToolCallArgs` in `modifyPlan.ts` had return type `unknown | null` (collapses to `unknown`) — fixed to `Record<string, unknown> | null` with `as` cast on `block.input`
+  - **m3 (MINOR):** Tool-extraction failure retry in `summarizeContextRecord` only appended the assistant message, leaving no user follow-up — fixed to use `buildValidationRetryMessages` (sends proper `tool_result` error)
+  - **m4 (MINOR):** `applySessionDraftUpdate` didn't set `updated_at` on any session field update — fixed; all 11 field updates now include `updated_at=?`
+  - Updated `summarizeContextRecord.test.ts` tool-extraction-retry test to assert 3-message conversation (user + assistant + user tool_result error) instead of the old broken 2-message behavior
+- All 222 tests pass; TypeScript clean; ESLint clean
+- Commit: 80798b6
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- `insertExerciseDraft` now returns `Promise<string>` (the new exercise UUID) — callers that don't need the ID can discard it; existing callers in `exerciseChanges` loop unaffected
+- `buildValidationRetryMessages` is now used for both tool-extraction failures and Zod validation failures in `summarizeContextRecord` — consistent with `modifyPlan` pattern
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 13.5 + 13.6 — UI work (expo-dev agent): chat screen for plan modification + context record display
+  Relevant docs sections: PRD §5.3 (modifyPlan UI contract), schema.md §ModifyPlanOutput, §PlanContextRecord
+  Affected screens: TBD by expo-dev agent — likely a new chat/modification screen and updates to plan detail screen
+  Watch out for:
+    - expo-dev agent handles all .tsx screen/component/navigation work — route through it, not inline
+    - modifyPlan has two response paths (clarification text vs. proposal tool_use) — UI must handle both
+    - summarizeContextRecord trigger: caller checks 3000-char threshold after applyPlanModification, then calls summarize if exceeded
+    - getRecentFeedback(5) is UI-layer responsibility to call before invoking modifyPlan
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-13T13:54:45Z
+**Completed this session:**
+- Phase 13.5 + 13.6 — Plan Chat screen + FAB
+  - Added `getExercisesByPlan(planId)` to `StorageService` interface and implemented in `OpSqliteStorageService` (JOIN query: exercise → session → plan, ordered by session.order_in_plan ASC then exercise.order_num ASC)
+  - Added two store actions to `useAppStore`:
+    - `loadPlanChatData(planId)` — fetches context record, last 5 feedback records, and all plan exercises in parallel
+    - `applyModification(planId, output, conversation)` — atomic DB write → conditional summarise if contextRecordUpdate >3000 chars → reload planSessions; SummarizeContextRecordError is non-blocking
+  - Created `app/plan-chat.tsx` — scrollable chat thread, typing indicator, full before/after diff ProposalCard, Apply/Don't Apply buttons, KeyboardAvoidingView, error handling
+  - Created `src/components/PlanChatButton.tsx` — pencil FAB (56×56, bottom-right), hidden when no active plan
+  - Updated `app/index.tsx` — added PlanChatButton as last child of container
+  - Updated `app/_layout.tsx` — registered `plan-chat` route with "Modify Plan" title
+  - Updated `docs/plan.md` — phases 10–13 status corrected to DONE; Phase 13 status header updated
+- 222 tests pass; TypeScript clean
+
+**In progress:** Nothing.
+
+**Decisions made:**
+- `getExercisesByPlan` added as a dedicated storage method (single JOIN query) rather than N calls to `getExercisesBySession` — avoids N round-trips for typical plan sizes
+- `applyModification` store action owns the apply → summarise → reload sequence; the UI screen calls one action and navigates, keeping orchestration out of the screen
+- Empty `PlanContextRecord` placeholder (`id: '', schemaVersion: 1, content: ''`) used when no context record exists yet — avoids nullable in `ModifyPlanInput.contextRecord`
+- Phase 13.7 tests deferred to a dedicated test session (test-writer agent, fresh session)
+
+**Open questions:** None.
+
+**Next session:**
+  Read: CLAUDE.md and this handoff entry
+  First task: Phase 13.7 unit tests — /unit-tests in a FRESH session
+  Relevant docs sections: plan.md §Phase 13.7 (test scope list)
+  Affected screens: None (tests only)
+  Watch out for:
+    - test-writer agent must run in a FRESH session — never the session that wrote the code
+    - New code needing coverage this session: `getExercisesByPlan` (OpSqliteStorageService), `loadPlanChatData` (useAppStore), `applyModification` (useAppStore) — these were not in the original 13.7 scope
+    - `applyModification` mocks `summarizeContextRecord` (AI module) — the existing useAppStore.test.ts does not mock AI modules; test-writer must handle this (separate file or jest.mock at top of file)
+    - Both the happy summarise path AND the non-blocking SummarizeContextRecordError catch should be tested in applyModification
+    - After expo-dev agent output + tsc clean: do NOT re-read generated files for verification — tsc passing + agent summary is sufficient
+    - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
+    - The 3 uncovered .catch() lines in useTTS.ts are intentional

@@ -158,7 +158,7 @@
 
 ## Phase 13 — Plan Chat + Context Record + summarizeContextRecord
 # Generated: 2026-04-11
-# Status: IN PROGRESS
+# Status: DONE
 
 ### Phase 13.1 — Schema Update
 **Scope:**
@@ -345,7 +345,7 @@ context record persist and auto-condense across sessions.
 | 7 | Real generatePlan() API call | DONE |
 | 8 | Session execution screen | DONE |
 | 9 | TTS voice guidance | DONE |
-| 10 | Post-session feedback screen | TODO |
-| 11 | Progress strip + exercise detail bottom sheet | TODO |
-| 12 | Mid-session backgrounding + resume | TODO |
-| 13 | Plan Chat + context record + summarizeContextRecord | TODO |
+| 10 | Post-session feedback screen | DONE |
+| 11 | Progress strip + exercise detail bottom sheet | DONE |
+| 12 | Mid-session backgrounding + resume | DONE |
+| 13 | Plan Chat + context record + summarizeContextRecord | DONE |

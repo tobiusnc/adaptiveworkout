@@ -55,6 +55,7 @@ export default function RootLayout(): React.JSX.Element {
           <Stack.Screen name="onboarding" options={{ title: 'Get Started', headerBackVisible: false }} />
           <Stack.Screen name="session/[id]" options={{ title: 'Session', headerBackVisible: false }} />
           <Stack.Screen name="session/feedback" options={{ title: 'Feedback', headerBackVisible: false }} />
+          <Stack.Screen name="plan-chat" options={{ title: 'Modify Plan' }} />
         </Stack>
       </GestureHandlerRootView>
     </SafeAreaProvider>
