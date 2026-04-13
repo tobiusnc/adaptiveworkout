@@ -48,7 +48,7 @@ function makeExerciseRow(overrides: Record<string, unknown> = {}) {
     phase: null,
     order_num: 1,
     name: 'Push-up',
-    type: 'work',
+    type: 'timed',
     duration_sec: 40,
     reps: null,
     weight: null,

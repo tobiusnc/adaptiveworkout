@@ -100,6 +100,7 @@ interface SessionRow {
   warmup_delay_between_items_sec: number;
   cooldown_delay_between_items_sec: number;
   between_round_exercise_id: string | null;
+  updated_at: string;
 }
 
 interface ExerciseRow {
@@ -350,7 +351,8 @@ const CREATE_SESSION_TABLE = `
     rest_between_rounds_sec INTEGER NOT NULL,
     warmup_delay_between_items_sec INTEGER NOT NULL,
     cooldown_delay_between_items_sec INTEGER NOT NULL,
-    between_round_exercise_id TEXT
+    between_round_exercise_id TEXT,
+    updated_at TEXT NOT NULL
   )
 `.trim();
 
@@ -637,14 +639,15 @@ export class OpSqliteStorageService implements StorageService {
         estimated_duration_minutes, work_sec, rest_between_ex_sec,
         stretch_between_rounds_sec, rest_between_rounds_sec,
         warmup_delay_between_items_sec, cooldown_delay_between_items_sec,
-        between_round_exercise_id
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        between_round_exercise_id, updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         session.id, session.schemaVersion, session.planId, session.name, session.type,
         session.orderInPlan, session.rounds, session.estimatedDurationMinutes,
         session.workSec, session.restBetweenExSec, session.stretchBetweenRoundsSec,
         session.restBetweenRoundsSec, session.warmupDelayBetweenItemsSec,
         session.cooldownDelayBetweenItemsSec, session.betweenRoundExerciseId,
+        new Date().toISOString(),
       ],
     );
   }
@@ -780,8 +783,8 @@ export class OpSqliteStorageService implements StorageService {
           estimated_duration_minutes, work_sec, rest_between_ex_sec,
           stretch_between_rounds_sec, rest_between_rounds_sec,
           warmup_delay_between_items_sec, cooldown_delay_between_items_sec,
-          between_round_exercise_id
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          between_round_exercise_id, updated_at
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         [
           session.id,
           session.schemaVersion,
@@ -798,6 +801,7 @@ export class OpSqliteStorageService implements StorageService {
           session.warmupDelayBetweenItemsSec,
           session.cooldownDelayBetweenItemsSec,
           session.betweenRoundExerciseId,
+          new Date().toISOString(),
         ],
       );
     } catch (cause) {
@@ -1297,8 +1301,8 @@ export class OpSqliteStorageService implements StorageService {
             estimated_duration_minutes, work_sec, rest_between_ex_sec,
             stretch_between_rounds_sec, rest_between_rounds_sec,
             warmup_delay_between_items_sec, cooldown_delay_between_items_sec,
-            between_round_exercise_id
-          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            between_round_exercise_id, updated_at
+          ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [
             newSessionId, 1, planId,
             draft.name ?? '', draft.type ?? 'resistance',
@@ -1307,7 +1311,7 @@ export class OpSqliteStorageService implements StorageService {
             draft.workSec ?? 40, draft.restBetweenExSec ?? 20,
             draft.stretchBetweenRoundsSec ?? 30, draft.restBetweenRoundsSec ?? 90,
             draft.warmupDelayBetweenItemsSec ?? 5, draft.cooldownDelayBetweenItemsSec ?? 5,
-            null,
+            null, new Date().toISOString(),
           ],
         );
         if (draft.betweenRoundExercise != null) {
@@ -1382,6 +1386,14 @@ export class OpSqliteStorageService implements StorageService {
       await db.execute('UPDATE session SET cooldown_delay_between_items_sec=?, updated_at=? WHERE id=?', [draft.cooldownDelayBetweenItemsSec, now, sessionId]);
     }
     if (draft.betweenRoundExercise !== undefined) {
+      // Read the current between_round_exercise_id so we can delete the orphaned row.
+      const sessionRows = (
+        await db.execute('SELECT between_round_exercise_id FROM session WHERE id=?', [sessionId])
+      ).rows as unknown as { between_round_exercise_id: string | null }[];
+      const oldBetweenRoundId = sessionRows[0]?.between_round_exercise_id ?? null;
+      if (oldBetweenRoundId !== null) {
+        await db.execute('DELETE FROM exercise WHERE id=?', [oldBetweenRoundId]);
+      }
       if (draft.betweenRoundExercise === null) {
         await db.execute('UPDATE session SET between_round_exercise_id=NULL, updated_at=? WHERE id=?', [now, sessionId]);
       } else {

@@ -15,6 +15,7 @@
 import * as Crypto from 'expo-crypto';
 import { create } from 'zustand';
 
+import { logger } from '../utils/logger';
 import type { StorageService } from '../storage/StorageService';
 import type {
   UserProfile,
@@ -380,6 +381,13 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
     await storageService.applyPlanModification(planId, output);
 
+    // Refresh activePlan so plan-level changes (name, description, config) are
+    // reflected in the store immediately — not just after the next app launch.
+    const updatedPlan = await storageService.getPlan(planId);
+    if (updatedPlan !== null) {
+      set({ activePlan: updatedPlan });
+    }
+
     if (output.contextRecordUpdate !== null && output.contextRecordUpdate.length > 3000) {
       try {
         const summaryResult = await summarizeContextRecord({
@@ -415,7 +423,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
           throw err;
         }
         // SummarizeContextRecordError is non-blocking — log and continue.
-        console.warn('summarizeContextRecord failed; retaining full context record.', err);
+        logger.error('summarizeContextRecord failed; retaining full context record.', { err });
       }
     }
 

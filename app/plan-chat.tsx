@@ -41,6 +41,7 @@ import type {
   SessionChange,
   SessionFeedback,
 } from '../src/types/index';
+import { logger } from '../src/utils/logger';
 import { colors, spacing, typography } from '../src/styles/tokens';
 
 // ── Thread item discriminated union ──────────────────────────────────────────
@@ -371,7 +372,7 @@ export default function PlanChatScreen(): React.JSX.Element {
           kind: 'text',
           id: openingId,
           role: 'assistant',
-          content: `I can help you modify your **${activePlan.name}** plan. What would you like to change?`,
+          content: `I can help you modify your ${activePlan.name} plan. What would you like to change?`,
         };
         setThread([openingItem]);
       })
@@ -499,7 +500,7 @@ export default function PlanChatScreen(): React.JSX.Element {
       const isExpectedError = err instanceof ModifyPlanError;
       if (!isExpectedError) {
         // Unexpected error — log for debugging in development.
-        console.error('[PlanChatScreen] unexpected error in modifyPlan:', err);
+        logger.error('[PlanChatScreen] unexpected error in modifyPlan:', { err });
       }
 
       const errorItem: TextThreadItem = {
