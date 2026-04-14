@@ -20,6 +20,7 @@ import {
 import type { StorageService } from '../../storage/StorageService';
 import type {
   Exercise,
+  Plan,
   Session,
   SessionFeedback,
   PlanContextRecord,
@@ -148,6 +149,25 @@ const FIXTURE_EXERCISE: Exercise = {
   formCues: ['Keep core tight'],
   youtubeSearchQuery: null,
   isBilateral: false,
+};
+
+const FIXTURE_PLAN: Plan = {
+  id: 'plan-1',
+  schemaVersion: 1,
+  userId: null,
+  name: 'Updated Plan Name',
+  description: 'Changed description',
+  isActive: true,
+  config: {
+    defaultWorkSec: 40,
+    restBetweenExSec: 15,
+    stretchBetweenRoundsSec: 30,
+    restBetweenRoundsSec: 60,
+    warmupDelayBetweenItemsSec: 5,
+    cooldownDelayBetweenItemsSec: 5,
+  },
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-04-01T00:00:00.000Z',
 };
 
 function makeModifyOutput(overrides: Partial<ModifyPlanOutput> = {}): ModifyPlanOutput {
@@ -390,5 +410,35 @@ describe('applyModification', () => {
     await useAppStore.getState().applyModification('plan-1', output, FIXTURE_CONVERSATION);
 
     expect(mockService.getSessionsByPlan).toHaveBeenCalledWith('plan-1');
+  });
+
+  // ── activePlan refresh — getPlan called with planId ───────────────────────
+  it('calls getPlan with planId after applyPlanModification', async () => {
+    useAppStore.setState({ storageService: mockService });
+
+    await useAppStore.getState().applyModification('plan-1', makeModifyOutput(), FIXTURE_CONVERSATION);
+
+    expect(mockService.getPlan).toHaveBeenCalledWith('plan-1');
+  });
+
+  // ── activePlan refresh — store updated when getPlan returns a plan ────────
+  it('updates activePlan in the store when getPlan returns an updated plan', async () => {
+    mockService.getPlan.mockResolvedValue(FIXTURE_PLAN);
+    useAppStore.setState({ storageService: mockService });
+
+    await useAppStore.getState().applyModification('plan-1', makeModifyOutput(), FIXTURE_CONVERSATION);
+
+    expect(useAppStore.getState().activePlan).toEqual(FIXTURE_PLAN);
+  });
+
+  // ── activePlan refresh — store unchanged when getPlan returns null ────────
+  it('leaves activePlan unchanged when getPlan returns null', async () => {
+    const priorPlan = FIXTURE_PLAN;
+    mockService.getPlan.mockResolvedValue(null);
+    useAppStore.setState({ storageService: mockService, activePlan: priorPlan });
+
+    await useAppStore.getState().applyModification('plan-1', makeModifyOutput(), FIXTURE_CONVERSATION);
+
+    expect(useAppStore.getState().activePlan).toEqual(priorPlan);
   });
 });

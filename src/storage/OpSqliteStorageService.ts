@@ -1319,8 +1319,8 @@ export class OpSqliteStorageService implements StorageService {
             db, newSessionId, draft.betweenRoundExercise,
           );
           await db.execute(
-            'UPDATE session SET between_round_exercise_id=? WHERE id=?',
-            [betweenRoundId, newSessionId],
+            'UPDATE session SET between_round_exercise_id=?, updated_at=? WHERE id=?',
+            [betweenRoundId, new Date().toISOString(), newSessionId],
           );
         }
         for (const exChange of change.exerciseChanges) {

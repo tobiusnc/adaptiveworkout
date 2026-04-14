@@ -386,6 +386,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
     const updatedPlan = await storageService.getPlan(planId);
     if (updatedPlan !== null) {
       set({ activePlan: updatedPlan });
+    } else {
+      logger.error('applyModification: getPlan returned null after successful write', { planId });
     }
 
     if (output.contextRecordUpdate !== null && output.contextRecordUpdate.length > 3000) {
