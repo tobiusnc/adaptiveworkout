@@ -1,0 +1,148 @@
+-- Batch 05: Squat (new)
+-- Wall Sit, Sumo Squat, Banded Sumo Squat, Cossack Squat, Sissy Squat, Assisted Pistol Squat, Pistol Squat
+
+INSERT INTO exercise_definition (
+  id, name, aliases, instructions, form_cues, youtube_search_query,
+  media_url, media_thumbnail_url,
+  movement, primary_muscles, secondary_muscles, equipment, body_position,
+  joint_stress, category, plane, anchor_point,
+  difficulty, complexity, hr_impact, space_overhead, space_horizontal,
+  grip_demand, noise_level,
+  default_step_type, typical_duration_range, typical_rep_range,
+  is_unilateral, is_compound, has_jumping, stretch_loaded, weightable,
+  substitutes, progressions, regressions,
+  created_at, updated_at
+) VALUES
+
+(
+  'ed-038', 'Wall Sit',
+  '["Wall Squat Hold"]',
+  '["Stand with your back flat against a wall and feet about two feet out from the base","Slide down the wall until your thighs are parallel to the floor and knees are at 90 degrees","Hold this position with your back pressed firmly into the wall","Stand back up when finished"]',
+  '["Back flat against the wall","Knees at 90 degrees — not past toes","Breathe steadily"]',
+  'wall sit proper form',
+  NULL, NULL,
+  '["iso","squat"]', '["quads","glutes"]', '["core","calves"]',
+  '["bw"]', '["stand"]', '["knee"]',
+  '["str"]', '["sag"]', '[]',
+  2, 1, 2, 1, 1, 1, 1,
+  'timed', '[20,60]', NULL,
+  0, 1, 0, 0, 0,
+  '["Bodyweight Squat"]',
+  '["Bodyweight Squat","Banded Squat"]',
+  '[]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-039', 'Sumo Squat',
+  '["Wide-Stance Squat","Plie Squat"]',
+  '["Stand with feet wider than shoulder-width, toes pointed out at about 45 degrees","Push hips back and bend knees to lower straight down, keeping torso upright","Descend until thighs are at least parallel to the floor","Drive through your heels to stand back up"]',
+  '["Toes and knees point the same direction","Torso stays upright — don''t lean forward","Drive knees out over toes"]',
+  'sumo squat bodyweight form',
+  NULL, NULL,
+  '["squat"]', '["quads","glutes","adductors"]', '["core","hams"]',
+  '["bw"]', '["stand"]', '["knee","hip"]',
+  '["str"]', '["sag","front"]', '[]',
+  1, 1, 3, 2, 2, 1, 1,
+  'rep', NULL, '[10,20]',
+  0, 1, 0, 1, 1,
+  '["Bodyweight Squat","Banded Sumo Squat"]',
+  '["Banded Sumo Squat","Cossack Squat"]',
+  '["Bodyweight Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-040', 'Banded Sumo Squat',
+  '["Resistance Band Sumo Squat"]',
+  '["Stand on a resistance band with a wide stance, toes pointed out at about 45 degrees","Hold the band at shoulder height or with arms extended in front","Push hips back and lower into a sumo squat against the band resistance","Drive through your heels to stand back up"]',
+  '["Knees track over toes","Chest up throughout","Press out against band tension"]',
+  'resistance band sumo squat form',
+  NULL, NULL,
+  '["squat"]', '["quads","glutes","adductors"]', '["core","hams"]',
+  '["band","bw"]', '["stand"]', '["knee","hip"]',
+  '["str"]', '["sag","front"]', '["anchor_foot"]',
+  2, 1, 3, 2, 2, 2, 1,
+  'rep', NULL, '[8,15]',
+  0, 1, 0, 1, 0,
+  '["Sumo Squat","Banded Squat"]',
+  '["Cossack Squat"]',
+  '["Sumo Squat","Bodyweight Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-041', 'Cossack Squat',
+  '["Side-to-Side Squat"]',
+  '["Stand with feet wide apart, about double shoulder-width","Shift your weight to one side and bend that knee, sinking as deep as your mobility allows","The opposite leg stays straight with toes pointing up","Push through the bent leg to return to center, then repeat on the other side"]',
+  '["Heel stays flat on the working leg","Straight leg toes point up","Go only as deep as mobility allows"]',
+  'cossack squat form tutorial',
+  NULL, NULL,
+  '["squat"]', '["quads","glutes","adductors"]', '["hams","hip_flex","core"]',
+  '["bw"]', '["stand"]', '["knee","hip","ankle"]',
+  '["str","mob"]', '["front","sag"]', '[]',
+  3, 3, 3, 2, 3, 1, 1,
+  'rep', NULL, '[5,10]',
+  1, 1, 0, 1, 1,
+  '["Lateral Lunge","Sumo Squat"]',
+  '["Pistol Squat"]',
+  '["Lateral Lunge","Sumo Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-042', 'Sissy Squat',
+  '[]',
+  '["Stand with feet hip-width apart, holding onto something sturdy for balance if needed","Rise onto the balls of your feet","Lean your torso back while bending your knees, lowering until you feel a deep stretch in your quads","Push through the balls of your feet to return to the starting position"]',
+  '["Stay on balls of feet throughout","Torso and thighs form a straight line as you lean back","Use a support for balance if needed"]',
+  'sissy squat bodyweight form',
+  NULL, NULL,
+  '["squat"]', '["quads"]', '["hip_flex","core"]',
+  '["bw"]', '["stand"]', '["knee"]',
+  '["str"]', '["sag"]', '[]',
+  3, 3, 2, 2, 1, 1, 1,
+  'rep', NULL, '[6,12]',
+  0, 0, 0, 1, 0,
+  '["Bodyweight Squat","Wall Sit"]',
+  '[]',
+  '["Bodyweight Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-043', 'Assisted Pistol Squat',
+  '["TRX Pistol Squat","Supported Pistol Squat"]',
+  '["Stand on one leg while holding onto a door frame, TRX strap, or band for support","Extend the non-working leg out in front of you","Lower yourself slowly on the standing leg as deep as your strength and mobility allow","Use the support to assist you back up to standing"]',
+  '["Use support for balance, not to pull yourself up","Keep heel flat on the floor","Go as deep as control allows"]',
+  'assisted pistol squat progression',
+  NULL, NULL,
+  '["squat"]', '["quads","glutes"]', '["core","hip_flex","adductors"]',
+  '["bw"]', '["stand"]', '["knee","hip","ankle"]',
+  '["str"]', '["sag"]', '[]',
+  3, 3, 3, 2, 1, 1, 1,
+  'rep', NULL, '[4,8]',
+  1, 1, 0, 1, 0,
+  '["Bulgarian Split Squat","Bodyweight Squat"]',
+  '["Pistol Squat"]',
+  '["Bulgarian Split Squat","Bodyweight Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+),
+
+(
+  'ed-044', 'Pistol Squat',
+  '["Single-Leg Squat"]',
+  '["Stand on one leg with the other leg extended straight out in front of you","Extend arms forward for counterbalance","Lower yourself on the standing leg until your hamstring touches your calf, keeping the extended leg off the floor","Drive through the heel to stand back up without assistance"]',
+  '["Heel stays flat — don''t rise onto toes","Extended leg stays off the floor","Arms forward for counterbalance"]',
+  'pistol squat form tutorial',
+  NULL, NULL,
+  '["squat"]', '["quads","glutes"]', '["core","hip_flex","adductors","calves"]',
+  '["bw"]', '["stand"]', '["knee","hip","ankle"]',
+  '["str"]', '["sag"]', '[]',
+  5, 4, 4, 2, 1, 1, 1,
+  'rep', NULL, '[2,6]',
+  1, 1, 0, 1, 1,
+  '["Assisted Pistol Squat","Bulgarian Split Squat"]',
+  '[]',
+  '["Assisted Pistol Squat","Cossack Squat"]',
+  '2026-04-14T00:00:00Z', '2026-04-14T00:00:00Z'
+);
