@@ -195,6 +195,55 @@ export interface SummarizeContextRecordInput {
   conversation: ConversationMessage[];
 }
 
+// ─── updateUserContext input ──────────────────────────────────────────────────
+
+export type PreferenceLevel = -2 | -1 | 1 | 2 | null;
+
+export interface UserContextRecord {
+  id: string;
+  schemaVersion: number;
+  userId: string | null;
+  primaryGoal: PrimaryGoal;
+  equipment: string[];
+  sessionsPerWeek: number;
+  targetDuration: TargetDuration;
+  fitnessLevel: FitnessLevel;
+  jointLimitations: string[];           // valid codes: knee, shoulder, wrist, lback, ankle, hip, elbow, neck
+  movementLimitations: string[];        // valid codes: push_h, push_v, pull_h, pull_v, hinge, squat, lunge, carry, rotation, iso, plyo, gait
+  limitationsNotes: string[];           // append-only nuanced notes
+  preferredExercises: string[];
+  preferredMovements: string[];
+  preferredEquipment: string[];
+  dislikedExercises: string[];
+  dislikedMovements: string[];
+  prefHigherReps: PreferenceLevel;
+  prefLongerRest: PreferenceLevel;
+  prefMoreVariety: PreferenceLevel;
+  prefHigherIntensity: PreferenceLevel;
+  prefLongerSessions: PreferenceLevel;
+  prefMoreRounds: PreferenceLevel;
+  prefCompoundFocus: PreferenceLevel;
+  spaceConstraint: 1 | 2 | 3 | null;    // 1=minimal, 2=moderate, 3=large
+  noiseConstraint: 1 | 2 | 3 | null;    // 1=silent required, 2=moderate ok, 3=no constraint
+  additionalDirections: string[];       // append-only actionable directions
+  updatedAt: string;                    // ISO 8601
+  updatedByModel: string;
+}
+
+export interface UpdateUserContextInput {
+  schemaVersion: number;
+  inputType: 'onboarding' | 'feedback' | 'planChat' | 'profileEdit';
+  sessionContext: string | null;        // for feedback: which session was completed
+  currentContext: UserContextRecord;
+  rawInput: string;
+}
+
+export interface UpdateUserContextOutput {
+  schemaVersion: number;
+  updatedContext: UserContextRecord;
+  extractionSummary: string;
+}
+
 // ─── AI Output Interfaces ─────────────────────────────────────────────────────
 
 // ─── generatePlan output ──────────────────────────────────────────────────────

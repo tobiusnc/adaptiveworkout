@@ -1,8 +1,8 @@
 # Product Requirements Document
 # Adaptive Workout App
-# Version: 1.0
+# Version: 1.2
 # Author: JD
-# Last updated: 2026-04-03
+# Last updated: 2026-04-16
 # =============================================================
 
 ## Agent Instructions
@@ -169,11 +169,15 @@ start to support this transition.
 
 ## 3. System Architecture
 
-Four subsystems with clean boundaries. Do not couple them directly.
+Five subsystems with clean boundaries. Do not couple them directly.
 
 ```
 ┌─────────────────────┐
-│   AI Plan Generator  │  — takes user profile + context, outputs session objects
+│  Exercise Library    │  — tagged exercise definitions (local SQLite; future: server-synced)
+└────────┬────────────┘
+         │ read by AI Plan Generator (tags only) and Execution Runtime (form cues)
+┌────────▼────────────┐
+│   AI Plan Generator  │  — takes user profile + context + exercise library, outputs session objects
 └────────┬────────────┘
          │ writes session objects to session store
 ┌────────▼────────────┐
@@ -258,23 +262,36 @@ GIVEN the AI call fails or times out
 WHEN the error occurs
 THEN a user-friendly error message is shown and the plan is not modified
 
-### 4.4 Plan Context Record
+### 4.4 User Context Record
 
-A human-readable, AI-maintained record stored alongside the active plan that
-captures significant decisions, user preferences, and constraints established during
-onboarding and subsequent modification conversations.
+A structured, AI-maintained record that captures the user's current fitness
+profile, physical constraints, exercise preferences, style preferences, and
+environment constraints. Replaces the former freeform Plan Context Record.
 
-Examples: "user has no TRX," "user dislikes high-impact exercises," "goblet squats
-replaced with TRX squat — user finds them uncomfortable," "user prefers sessions
-under 25 minutes."
+The record is owned exclusively by the `updateUserContext` interpreter (Haiku).
+The plan generation and modification functions read it; they never write it.
+The record is user-global — it is not tied to a specific plan and persists
+across plan changes.
 
-- The AI reads this record at the start of every plan modification conversation
-- The AI appends to this record when a meaningful preference or constraint is
-  established — this is the AI's responsibility, not a manual user action
-- The record is plain text, human-readable, and visible to the user
-- When the record grows large, the AI condenses it via `summarizeContextRecord`,
-  preserving high-signal persistent facts (physical limitations, equipment
-  constraints, strong preferences) and dropping transient or superseded entries
+**Interpreter trigger points:**
+- Onboarding questionnaire completion (initialises the record from answers)
+- Each plan chat message (runs before the plan AI call; extracts any signals)
+- Each post-session feedback submission
+- Explicit profile edit by the user
+
+**Structured fields** cover: current fitness profile (goal, equipment, schedule,
+fitness level), physical constraints (joint and movement limitations, nuanced
+notes), exercise preferences (liked/disliked exercises and movement patterns),
+style preferences (rep range, rest length, variety, intensity, session length,
+round count, compound vs. isolation focus; each on a −2 to +2 scale), and
+environment constraints (space, noise).
+
+**Safety valve:** Directions the interpreter cannot map to any structured field
+are appended to `additionalDirections` as plain-text strings and preserved
+indefinitely. The plan AI reads these after all structured fields.
+
+See `docs/schema.md` for the full `UserContextRecord` interface and
+`PreferenceLevel` type.
 
 ---
 
@@ -287,9 +304,9 @@ part of the application calls an AI provider directly.
 
 | Function | Primary Input | Primary Output | Default Model |
 |---|---|---|---|
-| `generatePlan` | UserProfile + optional history | Program object (structured) | claude-sonnet-4-6 |
-| `modifyPlan` | Current plan + context record + conversation | Diff object + plain-language summary | claude-sonnet-4-6 |
-| `summarizeContextRecord` | Current context record + new conversation | Updated context record | claude-haiku-4-5-20251001 |
+| `updateUserContext` | Raw user input + current UserContextRecord | Updated UserContextRecord + extraction summary | claude-haiku-4-5-20251001 |
+| `generatePlan` | UserProfile + UserContextRecord + optional feedback | Program object (structured) | claude-sonnet-4-6 |
+| `modifyPlan` | UserProfile + UserContextRecord + current plan + conversation | Diff object + plain-language summary | claude-sonnet-4-6 |
 | `analyzePlan` | Current plan + sessions + exercises | Analysis report (muscle coverage, time balance, HR profile) | claude-sonnet-4-6 — **future, not in MVP** |
 
 Each function has its own system prompt, input assembly logic, and output parser.
@@ -324,6 +341,97 @@ Prompts are stored as versioned files in the codebase alongside the code that ca
 them. The AI layer calls `loadPrompt(functionName)` rather than importing prompt
 strings directly — in MVP this reads from local files; future path is remote config
 with local fallback. Prompt version is logged with every AI call.
+
+**Future path:** When the server backend is introduced (see §10.3), prompts are
+fetched from the server with the local file as fallback. This allows prompt iteration
+without an app release.
+
+---
+
+### 5.5 Exercise Library
+
+A local SQLite database of canonical exercise definitions. Each entry is tagged with
+terse machine-readable attributes: movement pattern, primary and secondary muscles,
+equipment, body position, joint stress, category, plane of motion, and numeric
+attributes (difficulty, complexity, HR impact, space, noise, grip demand).
+
+**Purpose — reliability:** The AI selects exercises from a bounded, structured set
+rather than generating exercise data from training knowledge. This eliminates
+hallucinated exercises, misspelled names, and inconsistent form cues. The AI is
+constrained to IDs it was given — it cannot invent exercises.
+
+**Purpose — token efficiency:** Human-facing content (instructions, form cues,
+YouTube queries, media URLs) is excluded from AI context. The AI receives only terse
+tag data and numeric attributes per exercise. This reduces input token count
+significantly versus sending full exercise records, and reduces output tokens by
+approximately 75% — the AI returns an exercise ID and execution parameters only, not
+a full exercise definition.
+
+**AI input contract:** Each exercise is serialized to a compact tag-only JSON format
+as defined in `docs/schema.md`. The AI receives this serialized library as a cached
+block in every call.
+
+**AI output contract:** The AI returns `ExerciseDefinition.id` plus execution
+parameters only (`phase`, `order`, `type`, `durationSec`, `reps`, `isBilateral`).
+The AI must only select IDs present in the library provided in the current context.
+
+**Execution runtime:** The execution runtime reads human-facing content (form cues,
+YouTube search query) from the exercise library by ID at display time. The session
+store holds exercise IDs; the library is the source of truth for display content.
+
+**Future path:** The exercise library will be hosted on the application server and
+synced to the device. The local copy is authoritative for offline operation. Sync
+updates the local copy when connectivity is available. The exercise library version
+is included in every AI call log.
+
+---
+
+### 5.6 Algorithmic Output Validation
+
+After every AI response and before any write to the session store, the AI layer
+performs deterministic constraint validation beyond schema compliance.
+
+**ID existence check:** Every exercise ID in the AI output must exist in the local
+exercise library. Unknown IDs are treated as validation failures and trigger the
+validation retry loop (§5.2) with the unknown IDs identified in the retry message.
+
+**Constraint checks:**
+- **Equipment:** All equipment required by selected exercises must appear in the
+  user's available equipment list.
+- **Joint stress:** No selected exercise may carry a joint stress tag that conflicts
+  with a user-stated injury or movement limitation, where the limitation maps to a
+  specific joint tag.
+
+These checks are deterministic and require no AI call. On violation, the specific
+conflicts are included in the validation retry message so the AI can substitute
+compliant exercises. If violations persist after retries, the call fails with a
+user-friendly error — no non-compliant plan is written to the session store.
+
+**Reliability target:** 95%+ semantic correctness on clear, scoped modification
+requests, measured against a maintained eval set. Algorithmic validation handles the
+mechanical constraint layer. Prompt quality and the plan context record handle intent
+interpretation.
+
+---
+
+### 5.7 Prompt Caching
+
+All AI calls must use the Anthropic prompt caching API (`cache_control`) to reduce
+cost and latency.
+
+**Cache checkpoint 1 — static:** System prompt + exercise library. This block is
+identical across all calls from all users. Marked with `cache_control`; cache hits
+cost approximately 10% of full input price. Must appear at the top of the system
+context before any dynamic content.
+
+**Cache checkpoint 2 — session-stable:** Current plan state + plan context record.
+Stable within a single modification conversation (changes only when the user confirms
+a modification). Turns 2+ of a conversation hit this cache checkpoint, saving the
+full plan-state input cost per turn.
+
+**MVP:** No background cache-refresh strategy is required. The 5-minute cache TTL
+covers all turns within a typical modification conversation. Revisit if traffic
+patterns show meaningful inter-session cache misses at scale.
 
 ---
 
@@ -632,6 +740,14 @@ all schema detail.
   even if not populated in MVP
 - Multiple plans — plan schema must support a library, not just one active plan
 - Wearable companion — session object must be serializable to watch-compatible format
+- Server backend for AI calls — all Anthropic API calls move to a server layer for
+  API key security and remote prompt management; the AI layer abstraction (§5.1) must
+  not be coupled to direct client-side SDK calls so this transition requires changes
+  only to the transport layer, not to input assembly or output validation logic
+- Server-hosted exercise library — the exercise library moves to the application
+  server with device sync; the local SQLite copy remains authoritative for offline
+  operation; the exercise library access interface must not assume local-only so this
+  transition requires no changes to AI layer or execution runtime code
 
 ---
 
@@ -718,3 +834,4 @@ implementation decision not covered here, it records it in `docs/decisions.md`.
 | 0.1–0.8 | 2026-03-06 to 2026-03-08 | Initial draft through full execution engine spec, AI layer, platform strategy, tech stack, voice input, HR integration (see root PRD.md for detailed per-version notes) |
 | 1.1 | 2026-04-03 | §9 stripped of entity detail — docs/schema.md is the sole source of truth for all data structures. PRD now only states versioning policy and points to schema.md. |
 | 1.0 | 2026-04-03 | Merged root PRD.md (v0.8) with session-based decisions. Voice input (STT) moved to future. HR integration moved to future. Pre-session intensity dial moved to future. Cardio session execution removed (out of scope, may not return). Storage changed to SQLite + SQLCipher for MVP (PowerSync as future path). Post-session feedback simplified to free-form text only in MVP (structured flags future). Plan modification: no full conversation history retained — plan context record is the continuity mechanism. TTS voice: platform default for MVP. Orientation: portrait only. Mid-session exit: default to resume; explicit End Session requires confirmation dialog. Exercise detail bottom sheet added to MVP scope (full form cues + YouTube link). Walking skeleton simplified to match updated MVP scope. All open questions closed. |
+| 1.2 | 2026-04-16 | Added §5.5 Exercise Library (reliability + token efficiency rationale, AI input/output contract, future server path). Added §5.6 Algorithmic Output Validation (ID existence check, equipment and joint-stress constraint checks, 95%+ reliability target). Added §5.7 Prompt Caching (two cache checkpoints, requirements). Updated §3 architecture diagram to include Exercise Library. Updated §5.4 with server backend prompt path. Updated §10.3 with server backend for AI calls and server-hosted exercise library as future requirements. |
