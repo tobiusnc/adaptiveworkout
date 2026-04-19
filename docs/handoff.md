@@ -1254,3 +1254,83 @@
     - After expo-dev agent output + tsc clean: do NOT re-read generated files for verification — tsc passing + agent summary is sufficient
     - Pre-existing uncovered branch in useAppStore.ts (betweenRoundExercise === null) — not a gap to fix
     - The 3 uncovered .catch() lines in useTTS.ts are intentional
+
+---
+
+## 2026-04-13T17:46:42Z
+**Completed this session:**
+- Phase 13.7 — Unit tests for new Phase 13.5/13.6 code
+  - `src/storage/__tests__/OpSqliteStorageService.getExercisesByPlan.test.ts` — 7 tests
+    - Happy path: returns mapped Exercise[]
+    - Parses formCues JSON correctly
+    - Empty rows → []
+    - Null rows → []
+    - planId forwarded as SQL parameter
+    - `assertDb()` throws `StorageError(DB_INIT_FAILED)` when not initialized
+    - Generic DB error wrapped as `StorageError(QUERY_FAILED)`
+    - `StorageError(PARSE_FAILED)` from rowToExercise re-thrown without re-wrapping
+  - `src/store/__tests__/useAppStore.phase13.test.ts` — 17 tests
+    - `loadPlanChatData`: null guard, happy path parallel fetch, planId forwarded to getContextRecord + getExercisesByPlan, getRecentFeedback(5) enforced, null contextRecord, storage rejection propagates
+    - `applyModification`: null guard, always calls applyPlanModification, null/short contextRecordUpdate skips summarize, long (>3000) triggers summarize, long+existing record → updateContextRecord, long+no record → saveContextRecord with new UUID, SummarizeContextRecordError non-blocking (resolves + calls loadSessions), other error re-thrown, always calls loadSessions
+  - Total: 246 tests pass (was 222); TypeScript clean; ESLint clean
+  - Fixes during run: StorageError.tag not .code; StepType 'timed' not 'work'; duplicate import of summarizeContextRecord consolidated; unused StorageError import removed
+- Commit: c6c8bb1
+
+**In progress:** Nothing.
+
+**Source exports added:** None.
+
+**Skipped assertions:** None.
+
+**Open questions:** None.
+
+**Next session:**
+  First task: /review in a fresh session
+  Relevant scope: Phase 13 end-to-end — modifyPlan, summarizeContextRecord, applyPlanModification, loadPlanChatData, applyModification (store), getExercisesByPlan, plan-chat.tsx screen, PlanChatButton
+  Commits in scope: a5bc73c through c6c8bb1 (Phases 13.1–13.7)
+
+---
+
+## 2026-04-13T18:15:00Z
+**Completed this session:**
+- Phase 13 code review (code-reviewer subagent) + fixes
+  - **M1 (MAJOR):** `session` table DDL missing `updated_at` column — all session UPDATE statements in `applySessionDraftUpdate` would throw SQL errors at runtime, rolling back every plan modification that touched session fields. Fixed: added `updated_at TEXT NOT NULL` to DDL; updated `insertSessionRow`, `saveSession` INSERT, and `applySessionChanges` add-path INSERT to include `updated_at`; also added `updated_at` to `SessionRow` interface.
+  - **M2 (MAJOR):** Orphaned exercise rows when replacing/clearing `betweenRoundExercise` in `applySessionDraftUpdate` — the old exercise row was never deleted, only the FK reference was cleared. Orphans had valid `session_id` so they'd appear in `getExercisesByPlan` output, corrupting the exercise list sent to the AI. Fixed: read `between_round_exercise_id` from session before updating; DELETE old exercise if non-null.
+  - **M3 (MAJOR):** `activePlan` in store not refreshed after `applyModification` — plan-level changes (name, description, config) were written to DB but the in-memory store retained stale data. Fixed: call `storageService.getPlan(planId)` after `applyPlanModification` and `set({ activePlan: updatedPlan })` if found.
+  - **m1/m2 (MINOR):** `console.error` in `plan-chat.tsx:502` and `console.warn` in `useAppStore.ts:418` replaced with `logger.error`; added logger import to both files.
+  - **m4 (MINOR):** Test fixture in `OpSqliteStorageService.getExercisesByPlan.test.ts` used `type: 'work'` (not a valid `StepType`); corrected to `type: 'timed'`.
+  - **n3 (NOTE):** Opening message in `plan-chat.tsx` used markdown `**bold**` inside a plain `<Text>` — renders as literal asterisks. Removed markdown.
+- 246 tests pass; TypeScript clean; ESLint clean
+- Commit: 3817a6e
+
+**In progress:** Nothing.
+
+**Open questions:** None.
+
+**Next session:**
+  First task: /review in a fresh session (second review pass)
+  Scope: commits c6c8bb1 and 3817a6e (Phase 13.7 tests + review fixes)
+  Focus areas for reviewer:
+    - M2 fix: verify the SELECT→DELETE→UPDATE sequence in applySessionDraftUpdate is correct and atomic (it runs inside the existing transaction)
+    - M3 fix: verify getPlan call placement and set({ activePlan }) correctness
+    - M1 fix: verify all INSERT paths for session now include updated_at
+    - Any new issues introduced by the fixes themselves
+
+---
+
+## 2026-04-13T18:45:00Z
+**Completed this session:**
+- Phase 13 second code review (code-reviewer subagent) + fixes
+  - **m1 (MINOR):** `applySessionChanges` add-path betweenRoundExercise UPDATE was missing `updated_at=?` — all other session UPDATEs include it; this one was missed in the first fix pass. Fixed: added `updated_at=?` and timestamp to `UPDATE session SET between_round_exercise_id=?, updated_at=? WHERE id=?`.
+  - **m2 (MINOR):** M3 fix (activePlan refresh) had no test — all `applyModification` tests had `getPlan` returning null, exercising only the skip branch. Added 3 new tests: getPlan called with planId, activePlan updated when getPlan returns a plan, activePlan unchanged when getPlan returns null.
+  - **n2 (NOTE):** Added `logger.error` when `getPlan` returns null after a successful write — aids debugging if this ever occurs.
+- 249 tests pass (was 246); TypeScript clean; ESLint clean
+- Commit: 73b61ac
+
+**In progress:** Nothing.
+
+**Open questions:** None.
+
+**Next session:**
+  First task: Next feature per PRD — read docs/PRD.md and docs/plan.md to identify the next incomplete phase
+  Note: Phase 13 is fully complete and has passed two review cycles. Ready to move forward.
