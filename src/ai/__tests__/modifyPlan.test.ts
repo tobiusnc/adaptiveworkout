@@ -32,6 +32,20 @@ jest.mock('@anthropic-ai/sdk', () => {
     }
   }
 
+  class APIConnectionTimeoutError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'APIConnectionTimeoutError';
+    }
+  }
+
+  class APIUserAbortError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'APIUserAbortError';
+    }
+  }
+
   const mockCreate = jest.fn();
 
   const MockAnthropic = jest.fn().mockImplementation(() => ({
@@ -39,6 +53,8 @@ jest.mock('@anthropic-ai/sdk', () => {
   }));
 
   (MockAnthropic as unknown as Record<string, unknown>).APIError = APIError;
+  (MockAnthropic as unknown as Record<string, unknown>).APIConnectionTimeoutError = APIConnectionTimeoutError;
+  (MockAnthropic as unknown as Record<string, unknown>).APIUserAbortError = APIUserAbortError;
   (MockAnthropic as unknown as Record<string, unknown>).__mockCreate = mockCreate;
 
   return { __esModule: true, default: MockAnthropic };
@@ -50,6 +66,12 @@ const MockAPIError = AnthropicMock.APIError as new (
   message: string,
   status: number,
 ) => Error & { readonly status: number };
+const MockAPIConnectionTimeoutError = AnthropicMock.APIConnectionTimeoutError as new (
+  message: string,
+) => Error;
+const MockAPIUserAbortError = AnthropicMock.APIUserAbortError as new (
+  message: string,
+) => Error;
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -300,7 +322,7 @@ describe('modifyPlan — token logging', () => {
 describe('modifyPlan — network retry', () => {
   it('retries once on AbortError (timeout) and succeeds on the second call', async () => {
     jest.useFakeTimers();
-    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+    const abortError = new MockAPIUserAbortError('The operation was aborted');
     mockMessagesCreate
       .mockRejectedValueOnce(abortError)
       .mockResolvedValueOnce(makeClarificationResponse());
@@ -330,7 +352,7 @@ describe('modifyPlan — network retry', () => {
 
   it('throws ModifyPlanError after both network attempts time out', async () => {
     jest.useFakeTimers();
-    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+    const abortError = new MockAPIUserAbortError('The operation was aborted');
     mockMessagesCreate.mockRejectedValue(abortError);
 
     const p = modifyPlan(FIXTURE_INPUT);

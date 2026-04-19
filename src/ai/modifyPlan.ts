@@ -21,7 +21,7 @@ import type {
   SessionFeedback,
   ConversationMessage,
 } from '../types/index';
-import { REASONING_MODEL } from './models';
+import { SUMMARIZATION_MODEL as REASONING_MODEL } from './models';
 import { logger } from '../utils/logger';
 import {
   MODIFY_PLAN_PROMPT_VERSION,
@@ -297,34 +297,23 @@ const SUBMIT_MODIFICATION_TOOL: Anthropic.Tool = {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 90_000;
 const NETWORK_RETRY_BACKOFF_MS = 2_000;
 const MAX_VALIDATION_RETRIES = 2;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Create an AbortSignal that fires after the given timeout.
- * Returns both the signal and a cleanup function to clear the timer.
- */
-function createTimeoutSignal(ms: number): {
-  signal: AbortSignal;
-  cleanup: () => void;
-} {
-  const controller = new AbortController();
-  const timerId = setTimeout(() => controller.abort(), ms);
-  return {
-    signal: controller.signal,
-    cleanup: () => clearTimeout(timerId),
-  };
-}
-
-/**
  * Determine whether an error is retryable at the network level
  * (timeout or HTTP 5xx).
  */
 function isNetworkRetryable(error: unknown): boolean {
-  if (error instanceof Error && error.name === 'AbortError') {
+  // SDK throws APIConnectionTimeoutError when the per-request timeout fires.
+  if (error instanceof Anthropic.APIConnectionTimeoutError) {
+    return true;
+  }
+  // Catch-all for user-abort errors (e.g. signal passed externally).
+  if (error instanceof Anthropic.APIUserAbortError) {
     return true;
   }
   if (error instanceof Anthropic.APIError && error.status >= 500) {
@@ -507,23 +496,17 @@ async function callAnthropic(
   client: Anthropic,
   messages: Anthropic.MessageParam[],
 ): Promise<Anthropic.Message> {
-  const { signal, cleanup } = createTimeoutSignal(TIMEOUT_MS);
-  try {
-    const response = await client.messages.create(
-      {
-        model: REASONING_MODEL,
-        max_tokens: 8192,
-        system: MODIFY_PLAN_SYSTEM_PROMPT,
-        messages,
-        tools: [SUBMIT_MODIFICATION_TOOL],
-        tool_choice: { type: 'auto' },
-      },
-      { signal },
-    );
-    return response;
-  } finally {
-    cleanup();
-  }
+  return client.messages.create(
+    {
+      model: REASONING_MODEL,
+      max_tokens: 8192,
+      system: MODIFY_PLAN_SYSTEM_PROMPT,
+      messages,
+      tools: [SUBMIT_MODIFICATION_TOOL],
+      tool_choice: { type: 'auto' },
+    },
+    { timeout: TIMEOUT_MS },
+  );
 }
 
 /**

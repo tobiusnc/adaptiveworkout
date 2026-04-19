@@ -28,6 +28,7 @@ import {
   View,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
+import { useHeaderHeight } from '@react-navigation/elements';
 
 import { useAppStore } from '../src/store/useAppStore';
 import { modifyPlan, ModifyPlanError } from '../src/ai/modifyPlan';
@@ -309,6 +310,7 @@ function ProposalCard({
 // ── PlanChatScreen ────────────────────────────────────────────────────────────
 
 export default function PlanChatScreen(): React.JSX.Element {
+  const headerHeight = useHeaderHeight();
   const activePlan = useAppStore((s) => s.activePlan);
   const planSessions = useAppStore((s) => s.planSessions);
   const loadPlanChatData = useAppStore((s) => s.loadPlanChatData);
@@ -630,8 +632,8 @@ export default function PlanChatScreen(): React.JSX.Element {
       */}
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={headerHeight}
       >
         <FlatList
           ref={listRef}
